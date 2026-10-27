@@ -1,0 +1,15 @@
+# Dependências e builds
+node_modules/
+.next/
+out/
+build/
+.dart_tool/
+
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Dados da empresa: planilhas e saídas do importador não vão para o repositório
+*.xlsx
+backend/tools/importer/out/
