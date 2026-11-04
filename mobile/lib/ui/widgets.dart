@@ -269,12 +269,15 @@ class ReturnedBanner extends ConsumerWidget {
 }
 
 class ZeloScaffold extends StatelessWidget {
-  const ZeloScaffold({super.key, required this.body, this.showHome = true, this.title, this.bottom});
+  const ZeloScaffold({super.key, required this.body, this.showHome = true, this.title, this.bottom, this.action});
 
   final Widget body;
   final bool showHome;
   final Widget? title;
   final Widget? bottom;
+
+  /// Botão extra na barra do topo, antes do estado do envio.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +294,7 @@ class ZeloScaffold extends StatelessWidget {
               )
             : null,
         title: title,
-        actions: const [SyncStatusIcon(), SizedBox(width: 8)],
+        actions: [?action, const SyncStatusIcon(), const SizedBox(width: 8)],
       ),
       body: SafeArea(
         child: Padding(padding: const EdgeInsets.all(ZeloSizes.gutter), child: body),

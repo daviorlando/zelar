@@ -72,6 +72,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 
     return ZeloScaffold(
       showHome: false,
+      action: const _LogoutButton(),
       title: GestureDetector(
         // Facilitador: segurar a foto abre o registro do teste de uso.
         onLongPress: () => context.push('/facilitador'),
@@ -133,6 +134,71 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, i) => _OrderCard(order: orders[i], session: session),
               ),
+      ),
+    );
+  }
+}
+
+/// Sair, para outra pessoa entrar no mesmo celular. Pergunta antes: um toque sem querer
+/// não pode tirar o funcionário do que está fazendo.
+class _LogoutButton extends ConsumerWidget {
+  const _LogoutButton();
+
+  Future<void> _ask(BuildContext context, WidgetRef ref) async {
+    final speaker = ref.read(speakerProvider);
+    speaker.say(Phrases.logoutAsk);
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        scrollable: true,
+        title: const Icon(Icons.logout, size: 64),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            BigActionButton(
+              key: const Key('logout-confirm'),
+              label: 'Sair',
+              icon: Icons.logout,
+              color: ZeloColors.blocked,
+              compact: true,
+              spokenHelp: Phrases.logoutConfirmButton,
+              onPressed: () => Navigator.of(dialog).pop(true),
+            ),
+            const SizedBox(height: 12),
+            BigActionButton(
+              key: const Key('logout-stay'),
+              label: 'Continuar aqui',
+              icon: Icons.check_circle,
+              color: ZeloColors.ok,
+              compact: true,
+              spokenHelp: Phrases.logoutStayButton,
+              onPressed: () => Navigator.of(dialog).pop(false),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (leave != true) return;
+    await speaker.stop();
+    ref.read(sessionProvider.notifier).logout();
+    if (context.mounted) context.go('/');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Semantics(
+      button: true,
+      label: 'Sair',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onLongPress: () => ref.read(speakerProvider).say(Phrases.logoutButton),
+        child: IconButton(
+          key: const Key('logout'),
+          iconSize: 40,
+          icon: const Icon(Icons.logout),
+          onPressed: () => _ask(context, ref),
+        ),
       ),
     );
   }

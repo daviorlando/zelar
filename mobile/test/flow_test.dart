@@ -9,6 +9,7 @@ import 'package:zelo/data/orders_repo.dart';
 import 'package:zelo/data/workers_repo.dart';
 import 'package:zelo/domain/models.dart';
 import 'package:zelo/state/session.dart';
+import 'package:zelo/state/setup.dart';
 
 const phones = {'comum 412x915': Size(412, 915), 'pequeno 360x640': Size(360, 640)};
 
@@ -22,6 +23,39 @@ class FakeSpeaker extends Speaker {
 
   @override
   Future<void> stop() async => stops++;
+
+  bool? installed = true;
+
+  @override
+  Future<bool?> ptBrInstalled() async => installed;
+}
+
+class FakeSystem extends SystemSettings {
+  var opened = 0;
+  int? volume = 7;
+
+  @override
+  Future<bool> openVoiceSettings() async {
+    opened++;
+    return true;
+  }
+
+  @override
+  Future<int?> mediaVolume() async => volume;
+}
+
+/// Como num celular novo: ainda não passou pela primeira inicialização.
+class SetupPendente extends SetupNotifier {
+  var finished = false;
+
+  @override
+  Future<void> load() async => state = true;
+
+  @override
+  Future<void> finish() async {
+    finished = true;
+    state = false;
+  }
 }
 
 Future<ProviderContainer> startApp(WidgetTester tester, Size size, {Speaker? speaker, List<dynamic> overrides = const []}) async {
@@ -129,6 +163,36 @@ Future<ProviderContainer> abrirDevolvida(WidgetTester tester, Size size, FakeSpe
 Future<void> drainTimers(WidgetTester tester) => tester.pump(const Duration(seconds: 9));
 
 void main() {
+  group('voz pt-BR offline', () {
+    test('reconhece a voz do Samsung, que vem com locale diferente', () {
+      expect(
+        temVozPtBrOffline([
+          {'name': 'en-US-SMTf00', 'locale': 'eng-x-lvariant-f00', 'network_required': '0', 'features': ''},
+          {'name': 'pt-BR-SMTf00', 'locale': 'por-x-lvariant-f00', 'network_required': '0', 'features': 'preload=true'},
+        ]),
+        isTrue,
+      );
+    });
+    test('reconhece a voz local do Google, pelo locale', () {
+      expect(
+        temVozPtBrOffline([
+          {'name': 'pt-br-x-afs-local', 'locale': 'pt-BR', 'network_required': '0', 'features': 'embeddedTts'},
+        ]),
+        isTrue,
+      );
+    });
+    test('não aceita voz que depende de internet, não instalada ou de outro idioma', () {
+      expect(
+        temVozPtBrOffline([
+          {'name': 'pt-br-x-afs-network', 'locale': 'pt-BR', 'network_required': '1', 'features': ''},
+          {'name': 'pt-br-x-afs-local', 'locale': 'pt-BR', 'network_required': '0', 'features': 'notInstalled'},
+          {'name': 'pt-PT-SMTf00', 'locale': 'por-x-lvariant-f00', 'network_required': '0', 'features': ''},
+        ]),
+        isFalse,
+      );
+    });
+  });
+
   for (final MapEntry(key: name, value: size) in phones.entries) {
     group('celular $name', () {
       testWidgets('PIN visual bloqueia após cinco erros', (tester) async {
@@ -171,6 +235,80 @@ void main() {
         expect(s.answersFor('o2').values.map((a) => a.outcome), [Outcome.ok, Outcome.done]);
         expect(find.byKey(const Key('order-o2')), findsOneWidget); // de volta à tela Hoje
         await drainTimers(tester);
+      });
+
+      testWidgets('primeira inicialização: voz faltando, abre as configurações, tutorial e entra', (tester) async {
+        final voz = FakeSpeaker()..installed = false;
+        final sistema = FakeSystem()..volume = 0;
+        final c = await startApp(tester, size, speaker: voz, overrides: [
+          setupProvider.overrideWith(SetupPendente.new),
+          systemSettingsProvider.overrideWithValue(sistema),
+        ]);
+        expect(find.text('Falta instalar a voz'), findsOneWidget);
+        expect(voz.said.last, Phrases.setupVoiceMissing);
+        expect(find.byKey(const Key('setup-muted')), findsOneWidget); // volume em zero avisa por escrito
+
+        await tapKey(tester, 'setup-open-voice');
+        expect(sistema.opened, 1);
+
+        // Voltou das configurações já com a voz instalada e o som ligado.
+        voz.installed = true;
+        sistema.volume = 7;
+        for (final estado in [AppLifecycleState.resumed, AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused, AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+          tester.binding.handleAppLifecycleStateChanged(estado);
+          await tester.pump();
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('A voz está pronta'), findsOneWidget);
+        expect(find.byKey(const Key('setup-muted')), findsNothing);
+        expect(voz.said.last, Phrases.setupVoiceReady);
+
+        await tapKey(tester, 'setup-next');
+        expect(voz.said.last, Phrases.setupHowItWorks);
+        await tapKey(tester, 'setup-next');
+        expect(voz.said.last, Phrases.setupDone);
+        await tapKey(tester, 'setup-finish');
+        expect((c.read(setupProvider.notifier) as SetupPendente).finished, isTrue);
+        expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget); // tela de entrada
+      });
+
+      testWidgets('primeira inicialização: sem internet, dá para fazer a voz depois', (tester) async {
+        final voz = FakeSpeaker()..installed = false;
+        await startApp(tester, size, speaker: voz, overrides: [
+          setupProvider.overrideWith(SetupPendente.new),
+          systemSettingsProvider.overrideWithValue(FakeSystem()),
+        ]);
+        await tapKey(tester, 'setup-later');
+        expect(find.text('Como funciona'), findsOneWidget);
+      });
+
+      testWidgets('quem já passou pela primeira inicialização vai direto para a entrada', (tester) async {
+        await startApp(tester, size);
+        expect(find.byKey(const Key('setup-next')), findsNothing);
+        expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget);
+      });
+
+      testWidgets('sair pergunta antes, volta para a entrada e não deixa respostas para o próximo', (tester) async {
+        final voz = FakeSpeaker();
+        final c = await startApp(tester, size, speaker: voz);
+        await enterPin(tester, demoWorker.pin);
+        c.read(sessionProvider.notifier).answer('o2', Answer(itemId: orderById('o2').items.first.id, outcome: Outcome.ok, at: DateTime.now()));
+        await tester.pumpAndSettle();
+
+        await tapKey(tester, 'logout');
+        expect(voz.said.last, Phrases.logoutAsk);
+        await tapKey(tester, 'logout-stay');
+        expect(c.read(sessionProvider).worker, isNotNull);
+        expect(find.byKey(const Key('order-o2')), findsOneWidget);
+
+        await tapKey(tester, 'logout');
+        await tapKey(tester, 'logout-confirm');
+        expect(c.read(sessionProvider).worker, isNull);
+        expect(c.read(sessionProvider).answersFor('o2'), isEmpty);
+        expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget);
+
+        await enterPin(tester, demoWorker.pin);
+        expect(find.byKey(const Key('order-o2')), findsOneWidget);
       });
 
       testWidgets('lista ainda não chegou: não diz que acabou e fala a quantidade quando chega', (tester) async {

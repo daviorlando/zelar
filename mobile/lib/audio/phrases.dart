@@ -41,6 +41,24 @@ abstract final class Phrases {
   static const otherPerson = 'Voltar: escolher outra foto.';
   static const noWorkers = 'A lista de funcionários ainda não foi baixada. Chame o gestor.';
   static const allDone = 'Tudo feito por hoje. Obrigado.';
+
+  // Primeira inicialização.
+  static const setupVoiceReady = 'Bem-vindo ao Zelo. A voz em português já está pronta. Toque no botão verde, Próximo.';
+  static const setupVoiceMissing = 'Bem-vindo ao Zelo. Este celular ainda não tem a voz em português para usar sem internet. '
+      'Toque no botão azul, Abrir configurações. Toque na engrenagem do serviço de voz, depois em Instalar dados de voz, e baixe Português do Brasil. Depois, volte para o Zelo.';
+  static const setupHowItWorks = 'Veja como funciona. Para entrar, leia o crachá ou toque na sua foto. '
+      'O botão verde quer dizer que está tudo certo. O amarelo, que você encontrou um problema. O azul, que não conseguiu fazer. '
+      'Se tiver dúvida, segure um botão para ouvir o que ele faz. Toque no botão verde, Próximo.';
+  static const setupDone = 'Tudo pronto. Toque no botão verde, Começar.';
+  static const setupNextButton = 'Botão verde: ir para o próximo passo.';
+  static const setupOpenButton = 'Botão azul: abrir as configurações de voz do celular.';
+  static const setupStartButton = 'Botão verde: começar a usar o Zelo.';
+
+  // Sair.
+  static const logoutButton = 'Sair: para outra pessoa entrar neste celular.';
+  static const logoutAsk = 'Você quer sair? Para sair, toque no botão azul. Para continuar aqui, toque no botão verde.';
+  static const logoutConfirmButton = 'Botão azul: sair do Zelo. O que você fez continua guardado.';
+  static const logoutStayButton = 'Botão verde: continuar aqui.';
   static const loadFailed = 'Não consegui baixar as suas atividades. Puxe a tela para baixo para tentar de novo. Se continuar, chame o gestor.';
 
   /// Só a quantidade: a lista pode ser longa. Cada atividade fala ao segurar o cartão.

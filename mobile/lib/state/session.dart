@@ -81,7 +81,9 @@ class SessionNotifier extends Notifier<SessionState> {
     return worker;
   }
 
-  void logout() => state = state.copyWith(clearWorker: true);
+  /// Sai e não deixa respostas na tela de quem entrar depois. O que ainda não foi
+  /// enviado continua na fila do celular, em nome de quem respondeu.
+  void logout() => state = const SessionState();
 
   /// Com painel configurado, cada mudança vira operação na fila de envio.
   OutboxNotifier? get _outbox => WorkersRepo.configured && state.worker != null ? ref.read(outboxProvider.notifier) : null;

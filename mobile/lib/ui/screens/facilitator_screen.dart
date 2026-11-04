@@ -95,6 +95,7 @@ class _FacilitatorScreenState extends ConsumerState<FacilitatorScreen> {
             runSpacing: 8,
             children: [
               OutlinedButton(onPressed: _checkTts, child: const Text('Verificar voz')),
+              OutlinedButton(onPressed: () => context.go('/primeira-vez'), child: const Text('Rever primeira inicialização')),
               OutlinedButton(
                 onPressed: () async {
                   await ref.read(workersProvider.notifier).refresh();

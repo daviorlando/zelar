@@ -15,17 +15,20 @@ import 'ui/screens/finish_screen.dart';
 import 'ui/screens/item_screen.dart';
 import 'ui/screens/reason_screen.dart';
 import 'ui/screens/recognize_screen.dart';
+import 'ui/screens/setup_screen.dart';
 import 'ui/screens/today_screen.dart';
 import 'ui/theme.dart';
+import 'state/setup.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     // Sem trabalhador identificado, tudo leva à tela de entrada.
     // A leitura do crachá (/qr) também é permitida antes de entrar.
     redirect: (context, state) =>
-        ref.read(sessionProvider).worker == null && !{'/', '/qr'}.contains(state.matchedLocation) ? '/' : null,
+        ref.read(sessionProvider).worker == null && !{'/', '/qr', '/primeira-vez'}.contains(state.matchedLocation) ? '/' : null,
     routes: [
       GoRoute(path: '/', builder: (_, _) => const EntryScreen()),
+      GoRoute(path: '/primeira-vez', builder: (_, _) => const SetupScreen()),
       GoRoute(path: '/hoje', builder: (_, _) => const TodayScreen()),
       GoRoute(path: '/facilitador', builder: (_, _) => const FacilitatorScreen()),
       GoRoute(path: '/qr', builder: (_, _) => const QrScanScreen()),
@@ -102,6 +105,8 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
       if (worker != null && worker.id != before?.id) ref.read(ordersProvider.notifier).loadFor(worker);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(setupProvider.notifier).load();
+      if (ref.read(setupProvider)) ref.read(routerProvider).go('/primeira-vez');
       // Lista guardada primeiro (offline), depois tenta atualizar pelo painel.
       ref.read(workersProvider.notifier).load();
       await ref.read(outboxProvider.notifier).load();
