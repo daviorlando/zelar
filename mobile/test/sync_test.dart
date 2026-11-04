@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -223,6 +224,107 @@ void main() {
       await n.flush();
       expect(sent.map((r) => r.url.path), ['/api/mobile/sync', '/api/mobile/media']);
       expect(c.read(outboxProvider), isEmpty);
+    });
+
+    http.Response aceitaTudo(http.Request req) {
+      final ops = (jsonDecode(req.body) as Map)['ops'] as List;
+      return http.Response(jsonEncode({'results': [for (final o in ops) {'opId': o['opId'], 'status': 'accepted'}]}), 200);
+    }
+
+    ProviderContainer comFuncionario() {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      const w = Worker(id: 'w1', name: 'Teste', pin: [1, 2, 3, 4], badgeHash: 'x');
+      c.read(sessionProvider.notifier).tryPin(w, const [1, 2, 3, 4]);
+      return c;
+    }
+
+    test('resposta dada no app sai para o painel na hora, sem esperar o ciclo de 5 minutos', () async {
+      final c = comFuncionario();
+      respond = aceitaTudo;
+      c.read(sessionProvider.notifier).answer('o', Answer(itemId: 'i1', outcome: Outcome.ok, at: DateTime.now()));
+      for (var i = 0; i < 200 && c.read(outboxProvider).isNotEmpty || sent.isEmpty && i < 200; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(sent.map((r) => r.url.path), ['/api/mobile/sync']);
+      expect(c.read(outboxProvider), isEmpty);
+    });
+
+    test('sem internet a resposta dada no app continua guardada na fila', () async {
+      final c = comFuncionario();
+      respond = (_) => throw const SocketException('sem rede');
+      c.read(sessionProvider.notifier).answer('o', Answer(itemId: 'i1', outcome: Outcome.ok, at: DateTime.now()));
+      for (var i = 0; i < 200 && sent.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(c.read(outboxProvider).single.payload['itemId'], 'i1');
+      expect(c.read(sessionProvider).answersFor('o').containsKey('i1'), isTrue);
+    });
+
+    test('entrar durante outro envio ainda baixa as ordens', () async {
+      OrdersRepo.directory = () async => dir;
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final segura = Completer<void>();
+      var downloads = 0;
+      OutboxNotifier.client = () => MockClient((req) async {
+            await segura.future;
+            return aceitaTudo(req);
+          });
+      await c.read(outboxProvider.notifier).addAnswer(workerId: 'w0', orderId: 'o', itemId: 'i', result: 'ok', at: DateTime.now());
+      final servidor = MockClient((req) async {
+        downloads++;
+        return http.Response.bytes(utf8.encode(jsonEncode(sampleJson())), 200);
+      });
+      await http.runWithClient(() async {
+        final primeiro = c.read(ordersProvider.notifier).sync(); // app abrindo, ninguém logado, enviando a fila
+        const w = Worker(id: 'w1', name: 'Teste', pin: [1, 2, 3, 4], badgeHash: 'x');
+        c.read(sessionProvider.notifier).tryPin(w, const [1, 2, 3, 4]);
+        await c.read(ordersProvider.notifier).loadFor(w);
+        expect(c.read(ordersLoadProvider), OrdersLoad.loading);
+        segura.complete();
+        await primeiro;
+      }, () => servidor);
+      expect(downloads, 1);
+      expect(c.read(ordersLoadProvider), OrdersLoad.ready);
+      expect(c.read(ordersProvider), isNotEmpty);
+    });
+
+    test('sem nada guardado e sem internet: falhou, não "tudo feito"; com guardado: pronto', () async {
+      OrdersRepo.directory = () async => dir;
+      final c = comFuncionario();
+      const w = Worker(id: 'w1', name: 'Teste', pin: [1, 2, 3, 4], badgeHash: 'x');
+      final caiu = MockClient((_) async => throw const SocketException('sem rede'));
+      await http.runWithClient(() => c.read(ordersProvider.notifier).loadFor(w), () => caiu);
+      expect(c.read(ordersLoadProvider), OrdersLoad.failed);
+
+      File('${dir.path}/w1.json').writeAsStringSync(jsonEncode(sampleJson()));
+      await http.runWithClient(() => c.read(ordersProvider.notifier).loadFor(w), () => caiu);
+      expect(c.read(ordersLoadProvider), OrdersLoad.ready);
+      expect(c.read(ordersProvider), isNotEmpty);
+    });
+
+    test('resposta enviada durante o download não some da tela', () async {
+      OrdersRepo.directory = () async => dir;
+      final c = comFuncionario();
+      respond = aceitaTudo;
+      var downloads = 0;
+      final servidor = MockClient((req) async {
+        downloads++;
+        final json = sampleJson();
+        if (downloads == 1) {
+          // O servidor já montou esta resposta quando o funcionário responde e o envio termina.
+          await c.read(outboxProvider.notifier).addAnswer(workerId: 'w1', orderId: 'wo-1', itemId: 'it-3', result: 'done', at: DateTime.now());
+          await c.read(outboxProvider.notifier).flush();
+        } else {
+          ((json['orders'] as List).first['items'] as List)[2]['result'] = 'done';
+        }
+        return http.Response.bytes(utf8.encode(jsonEncode(json)), 200);
+      });
+      await http.runWithClient(() => c.read(ordersProvider.notifier).sync(), () => servidor);
+      expect(downloads, 2);
+      expect(c.read(sessionProvider).answersFor('wo-1')['it-3']!.outcome, Outcome.done);
     });
   });
 }

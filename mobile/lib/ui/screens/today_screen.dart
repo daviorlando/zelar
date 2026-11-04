@@ -19,12 +19,18 @@ class TodayScreen extends ConsumerStatefulWidget {
 }
 
 class _TodayScreenState extends ConsumerState<TodayScreen> {
+  var _spoken = false;
+
   @override
   void initState() {
     super.initState();
+    // A lista pode chegar depois de a tela abrir: a fala espera. Falhou e depois deu certo: fala de novo.
+    ref.listenManual(ordersLoadProvider, (before, now) {
+      if (now != OrdersLoad.loading && (!_spoken || before == OrdersLoad.failed)) _speak();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(eventLogProvider.notifier).add('tela', 'hoje');
-      _speak();
+      if (!_spoken && ref.read(ordersLoadProvider) != OrdersLoad.loading) _speak();
     });
   }
 
@@ -34,24 +40,30 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       final fa = session.finished.contains(a.id) ? 1 : 0;
       final fb = session.finished.contains(b.id) ? 1 : 0;
       if (fa != fb) return fa - fb;
+      // Devolvida vem primeiro: o gestor está esperando a correção.
+      final back = (b.returned ? 1 : 0) - (a.returned ? 1 : 0);
+      if (back != 0) return back;
       final late = (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0);
       if (late != 0) return late;
       return a.frequency.index - b.frequency.index;
     });
 
   void _speak() {
+    _spoken = true;
+    if (ref.read(ordersLoadProvider) == OrdersLoad.failed && ref.read(ordersProvider).isEmpty) {
+      ref.read(speakerProvider).say(Phrases.loadFailed);
+      return;
+    }
     final session = ref.read(sessionProvider);
-    final pending = [
-      for (final o in _visible(ref.read(ordersProvider), session))
-        if (!session.finished.contains(o.id)) (o.spokenName, o.overdue),
-    ];
-    ref.read(speakerProvider).say(Phrases.today(session.worker?.name ?? '', pending));
+    final pending = _visible(ref.read(ordersProvider), session).where((o) => !session.finished.contains(o.id));
+    ref.read(speakerProvider).say(Phrases.today(session.worker?.name ?? '', pending: pending.length, returned: pending.where((o) => o.returned).length));
   }
 
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider);
     final orders = _visible(ref.watch(ordersProvider), session);
+    final load = ref.watch(ordersLoadProvider);
 
     return ZeloScaffold(
       showHome: false,
@@ -73,16 +85,42 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             ? ListView(
                 children: [
                   const SizedBox(height: 48),
-                  GestureDetector(
-                    onTap: _speak,
-                    child: const Column(
-                      children: [
-                        Icon(Icons.task_alt, size: 120, color: ZeloColors.ok),
-                        SizedBox(height: 16),
-                        Text('Nada para hoje', textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-                      ],
+                  if (load == OrdersLoad.loading)
+                    Semantics(
+                      label: 'Carregando as atividades',
+                      child: const Center(key: Key('orders-loading'), child: CircularProgressIndicator(strokeWidth: 8)),
+                    )
+                  else if (load == OrdersLoad.failed)
+                    GestureDetector(
+                      onTap: _speak,
+                      child: const Column(
+                        key: Key('orders-failed'),
+                        children: [
+                          Icon(Icons.cloud_off, size: 120, color: ZeloColors.overdue),
+                          SizedBox(height: 16),
+                          Text(
+                            'Não baixou. Puxe para baixo.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: _speak,
+                      child: const Column(
+                        children: [
+                          Icon(Icons.task_alt, size: 120, color: ZeloColors.ok),
+                          SizedBox(height: 16),
+                          Text(
+                            'Nada para hoje',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               )
             : ListView.separated(
@@ -107,10 +145,11 @@ class _OrderCard extends ConsumerWidget {
     final done = session.answersFor(order.id).length;
     final finished = session.finished.contains(order.id);
     final hasProblem = session.answersFor(order.id).values.any((a) => a.isProblem);
+    final returned = order.returned && !finished;
 
     return Semantics(
       button: true,
-      label: '${order.spokenName}${order.overdue && !finished ? ', atrasado' : ''}',
+      label: '${order.spokenName}${returned ? ', devolvido pelo gestor' : ''}${order.overdue && !finished ? ', atrasado' : ''}',
       child: Material(
         color: Colors.white,
         elevation: 1,
@@ -122,16 +161,18 @@ class _OrderCard extends ConsumerWidget {
             ref.read(eventLogProvider.notifier).add('abriu', eq.shortName);
             context.go('/ordem/${order.id}');
           },
-          onLongPress: () => ref.read(speakerProvider).say(
-                '${order.spokenName}. ${order.overdue && !finished ? 'Atrasado. ' : ''}'
+          onLongPress: () => ref
+              .read(speakerProvider)
+              .say(
+                '${order.spokenName}. ${returned ? '${Phrases.returned(order.returnedReason!)} ' : ''}${order.overdue && !finished ? 'Atrasado. ' : ''}'
                 '${finished ? 'Feito.' : 'Faltam ${order.items.length - done} itens.'}',
               ),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Faixa distinta para atrasados: cor + ícone de relógio.
-                Container(width: 12, color: order.overdue && !finished ? ZeloColors.overdue : Colors.transparent),
+                // Faixa distinta para devolvidos e atrasados: cor + ícone.
+                Container(width: 12, color: returned ? ZeloColors.returned : (order.overdue && !finished ? ZeloColors.overdue : Colors.transparent)),
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: SizedBox(
@@ -152,6 +193,7 @@ class _OrderCard extends ConsumerWidget {
                           spacing: 8,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
+                            if (returned) Icon(Icons.undo, key: Key('returned-${order.id}'), color: ZeloColors.returned, size: 32),
                             if (order.frequency != Frequency.daily) _FrequencyTag(order.frequency),
                             if (order.overdue && !finished) const Icon(Icons.alarm, color: ZeloColors.overdue, size: 32),
                             if (hasProblem) const Icon(Icons.warning, color: ZeloColors.problem, size: 32),

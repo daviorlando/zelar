@@ -24,7 +24,8 @@ class RecognizeScreen extends ConsumerStatefulWidget {
 class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
   late final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
 
-  String get _prompt => Phrases.recognize(order.equipment.shortName);
+  String get _prompt =>
+      '${order.returned ? '${Phrases.returned(order.returnedReason!)} ' : ''}${Phrases.recognize(order.equipment.shortName)}';
 
   @override
   void initState() {
@@ -62,6 +63,7 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
       title: Text(eq.shortName),
       body: Column(
         children: [
+          if (order.returned) ...[ReturnedBanner(reason: order.returnedReason!), const SizedBox(height: 12)],
           Expanded(child: EquipmentPicture(icon: eq.icon, color: eq.color, label: eq.shortName)),
           const SizedBox(height: 16),
           AudioButton(text: _prompt),

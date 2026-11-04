@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../audio/phrases.dart';
 import '../audio/speaker.dart';
 import '../domain/models.dart';
 import '../state/outbox.dart';
@@ -208,6 +209,54 @@ class EquipmentPicture extends StatelessWidget {
 }
 
 /// Estrutura comum: botão de início à esquerda, estado de sincronização à direita.
+/// Aviso de ordem devolvida: o que o gestor pediu, por escrito e na voz (segure ou toque).
+class ReturnedBanner extends ConsumerWidget {
+  const ReturnedBanner({super.key, required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Semantics(
+      button: true,
+      label: Phrases.returned(reason),
+      excludeSemantics: true,
+      child: Material(
+        key: const Key('returned-banner'),
+        color: ZeloColors.returned,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => ref.read(speakerProvider).say(Phrases.returned(reason)),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.undo, color: Colors.white, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Devolvido pelo gestor', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      Text(
+                        reason,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ZeloScaffold extends StatelessWidget {
   const ZeloScaffold({super.key, required this.body, this.showHome = true, this.title, this.bottom});
 

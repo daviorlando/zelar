@@ -216,6 +216,19 @@ const _palette = [
 /// A mesma tag sempre ganha a mesma cor, em qualquer celular.
 Color colorOf(String tag) => _palette[tag.codeUnits.fold<int>(0, (a, c) => (a * 31 + c) & 0x7fffffff) % _palette.length];
 
+/// Lista vazia não quer dizer "nada a fazer": pode ainda não ter chegado. A tela só
+/// afirma que acabou com a lista em `ready`.
+enum OrdersLoad { loading, ready, failed }
+
+class OrdersLoadNotifier extends Notifier<OrdersLoad> {
+  @override
+  OrdersLoad build() => WorkersRepo.configured ? OrdersLoad.loading : OrdersLoad.ready;
+
+  void set(OrdersLoad value) => state = value;
+}
+
+final ordersLoadProvider = NotifierProvider<OrdersLoadNotifier, OrdersLoad>(OrdersLoadNotifier.new);
+
 class OrdersNotifier extends Notifier<List<WorkOrder>> {
   final _repo = OrdersRepo();
 
@@ -223,6 +236,7 @@ class OrdersNotifier extends Notifier<List<WorkOrder>> {
   String? lastError;
   DateTime? lastUpdate;
   var _syncing = false;
+  var _syncAgain = false;
 
   @override
   List<WorkOrder> build() => WorkersRepo.configured ? const [] : demoOrders;
@@ -232,9 +246,18 @@ class OrdersNotifier extends Notifier<List<WorkOrder>> {
   /// Ao entrar: o que está guardado primeiro (offline), depois envia e atualiza.
   Future<void> loadFor(Worker worker) async {
     if (!WorkersRepo.configured) return;
+    final load = ref.read(ordersLoadProvider.notifier);
+    // Sai a lista de quem usou o celular antes: enquanto a nova não chega, não há o que mostrar.
+    state = const [];
+    load.set(OrdersLoad.loading);
     try {
       final cached = await _repo.loadCached(worker.id);
-      if (cached != null) _apply(parseOrders(cached));
+      if (cached != null) {
+        final parsed = parseOrders(cached);
+        _apply(parsed);
+        // Guardada sem nada para hoje pode estar velha: quem decide é o download.
+        if (parsed.orders.any((o) => o.current)) load.set(OrdersLoad.ready);
+      }
     } catch (e) {
       debugPrint('ordens guardadas ilegíveis: $e');
     }
@@ -242,21 +265,54 @@ class OrdersNotifier extends Notifier<List<WorkOrder>> {
   }
 
   /// Envia o que está na fila e baixa as ordens de novo. Sem internet, fica com o que tem.
+  /// Pedido no meio de outro envio roda logo depois dele: quem entra enquanto o app
+  /// ainda sincroniza não pode ficar sem as ordens até o próximo ciclo.
   Future<void> sync() async {
-    if (!WorkersRepo.configured || _syncing) return;
-    final worker = ref.read(sessionProvider).worker;
+    if (!WorkersRepo.configured) return;
+    if (_syncing) {
+      _syncAgain = true;
+      return;
+    }
     _syncing = true;
     try {
-      await ref.read(outboxProvider.notifier).flush();
+      do {
+        _syncAgain = false;
+        await _syncOnce();
+      } while (_syncAgain);
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<void> _syncOnce() async {
+    final worker = ref.read(sessionProvider).worker;
+    final load = ref.read(ordersLoadProvider.notifier);
+    try {
+      final outbox = ref.read(outboxProvider.notifier);
+      await outbox.flush();
       if (worker == null) return;
-      _apply(parseOrders(await _repo.download(worker.id)));
+      // Se algo foi enviado durante o download, o que veio pode estar sem essa resposta
+      // (e ela já saiu da fila): aplicar faria a resposta sumir da tela. Baixa de novo.
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final before = outbox.delivered;
+        final parsed = parseOrders(await _repo.download(worker.id));
+        // Trocou de funcionário durante o download: estas ordens não são de quem está aqui.
+        if (ref.read(sessionProvider).worker?.id != worker.id) {
+          _syncAgain = true;
+          return;
+        }
+        if (outbox.delivered == before) {
+          _apply(parsed);
+          load.set(OrdersLoad.ready);
+          break;
+        }
+      }
       lastError = null;
       lastUpdate = DateTime.now();
     } catch (e) {
       lastError = '$e';
       debugPrint('sem atualização de ordens: $e');
-    } finally {
-      _syncing = false;
+      if (ref.read(ordersLoadProvider) == OrdersLoad.loading) load.set(OrdersLoad.failed);
     }
   }
 

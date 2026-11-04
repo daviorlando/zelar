@@ -151,6 +151,9 @@ class WorkOrder {
   final bool _overdue;
 
   /// Venceu antes de hoje e ainda não foi finalizada.
+  /// O gestor devolveu: as respostas continuam, o funcionário corrige o que foi pedido.
+  bool get returned => returnedReason?.trim().isNotEmpty ?? false;
+
   bool get overdue => _overdue || (dueDate != null && dueDate!.isBefore(today()));
 
   /// Já começou: o período em curso ou um anterior (atrasado). Futuras ficam guardadas para offline.

@@ -5,6 +5,7 @@ import 'package:zelo/app.dart';
 import 'package:zelo/audio/phrases.dart';
 import 'package:zelo/audio/speaker.dart';
 import 'package:zelo/data/fixtures.dart';
+import 'package:zelo/data/orders_repo.dart';
 import 'package:zelo/data/workers_repo.dart';
 import 'package:zelo/domain/models.dart';
 import 'package:zelo/state/session.dart';
@@ -23,12 +24,12 @@ class FakeSpeaker extends Speaker {
   Future<void> stop() async => stops++;
 }
 
-Future<ProviderContainer> startApp(WidgetTester tester, Size size, {Speaker? speaker}) async {
+Future<ProviderContainer> startApp(WidgetTester tester, Size size, {Speaker? speaker, List<dynamic> overrides = const []}) async {
   tester.view.physicalSize = size * 3;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(
-    overrides: [if (speaker != null) speakerProvider.overrideWithValue(speaker)],
+    overrides: [if (speaker != null) speakerProvider.overrideWithValue(speaker), ...overrides.cast()],
   );
   addTearDown(container.dispose);
   await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const ZeloApp()));
@@ -48,6 +49,57 @@ Future<void> enterPin(WidgetTester tester, List<int> pin) async {
   for (final i in pin) {
     await tapKey(tester, 'pin-$i');
   }
+}
+
+/// Como no celular de verdade: a tela abre antes de a lista chegar.
+class ListaDemorada extends OrdersNotifier {
+  @override
+  List<WorkOrder> build() => const [];
+
+  void chegou() => state = demoOrders;
+}
+
+class ComecaCarregando extends OrdersLoadNotifier {
+  @override
+  OrdersLoad build() => OrdersLoad.loading;
+}
+
+/// O indicador de carregando gira sem parar: aqui não dá para esperar a tela assentar.
+Future<void> entrarComListaCarregando(WidgetTester tester) async {
+  await tapKey(tester, 'worker-${demoWorker.id}');
+  for (final i in demoWorker.pin) {
+    await tester.tap(find.byKey(Key('pin-$i')));
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+const motivo = 'Refazer a limpeza';
+
+/// A segunda ordem de demonstração, devolvida pelo gestor com as respostas guardadas.
+class OrdensComDevolvida extends OrdersNotifier {
+  @override
+  List<WorkOrder> build() => [
+        orderById('o1'),
+        WorkOrder(id: 'o2', equipment: orderById('o2').equipment, items: orderById('o2').items, returnedReason: motivo),
+      ];
+}
+
+/// Entra e deixa a ordem como volta do painel: respondida, sem "concluída" e sem mudanças.
+Future<ProviderContainer> abrirDevolvida(WidgetTester tester, Size size, FakeSpeaker voz) async {
+  final c = await startApp(tester, size, speaker: voz, overrides: [ordersProvider.overrideWith(OrdensComDevolvida.new)]);
+  await enterPin(tester, demoWorker.pin);
+  final s = c.read(sessionProvider.notifier);
+  final itens = orderById('o2').items;
+  for (final i in itens) {
+    s.answer('o2', Answer(itemId: i.id, outcome: Outcome.ok, at: DateTime.now()));
+  }
+  s.finish('o2');
+  s.restore({'o2': c.read(sessionProvider).answersFor('o2')}, const []);
+  await tester.pumpAndSettle();
+  return c;
 }
 
 /// Deixa vencer o temporizador do "Desfazer" antes do fim do teste.
@@ -95,6 +147,120 @@ void main() {
         expect(s.finished, contains('o2'));
         expect(s.answersFor('o2').values.map((a) => a.outcome), [Outcome.ok, Outcome.done]);
         expect(find.byKey(const Key('order-o2')), findsOneWidget); // de volta à tela Hoje
+        await drainTimers(tester);
+      });
+
+      testWidgets('lista ainda não chegou: não diz que acabou e fala a quantidade quando chega', (tester) async {
+        final voz = FakeSpeaker();
+        final c = await startApp(tester, size, speaker: voz, overrides: [
+          ordersProvider.overrideWith(ListaDemorada.new),
+          ordersLoadProvider.overrideWith(ComecaCarregando.new),
+        ]);
+        await entrarComListaCarregando(tester);
+        expect(voz.said.where((f) => f.contains(Phrases.allDone)), isEmpty);
+        expect(find.text('Nada para hoje'), findsNothing);
+        expect(find.byKey(const Key('orders-loading')), findsOneWidget);
+
+        (c.read(ordersProvider.notifier) as ListaDemorada).chegou();
+        c.read(ordersLoadProvider.notifier).set(OrdersLoad.ready);
+        await tester.pump();
+        expect(voz.said.where((f) => f.contains('atividades pendentes')), hasLength(1));
+        expect(voz.said.where((f) => f.contains(Phrases.allDone)), isEmpty);
+      });
+
+      testWidgets('download falhou sem nada guardado: avisa, não diz que acabou; depois atualiza', (tester) async {
+        final voz = FakeSpeaker();
+        final c = await startApp(tester, size, speaker: voz, overrides: [
+          ordersProvider.overrideWith(ListaDemorada.new),
+          ordersLoadProvider.overrideWith(ComecaCarregando.new),
+        ]);
+        await entrarComListaCarregando(tester);
+        c.read(ordersLoadProvider.notifier).set(OrdersLoad.failed);
+        await tester.pump();
+        expect(voz.said.last, Phrases.loadFailed);
+        expect(find.byKey(const Key('orders-failed')), findsOneWidget);
+        expect(voz.said.where((f) => f.contains(Phrases.allDone)), isEmpty);
+
+        (c.read(ordersProvider.notifier) as ListaDemorada).chegou();
+        c.read(ordersLoadProvider.notifier).set(OrdersLoad.ready);
+        await tester.pump();
+        expect(voz.said.last, contains('atividades pendentes'));
+      });
+
+      testWidgets('lista carregada e vazia ainda diz que acabou', (tester) async {
+        final voz = FakeSpeaker();
+        await startApp(tester, size, speaker: voz, overrides: [ordersProvider.overrideWith(ListaDemorada.new)]);
+        await enterPin(tester, demoWorker.pin);
+        await tester.pump();
+        expect(voz.said.last, contains(Phrases.allDone));
+        expect(find.text('Nada para hoje'), findsOneWidget);
+      });
+
+      testWidgets('tela principal fala só a quantidade; segurar o cartão fala a atividade', (tester) async {
+        final voz = FakeSpeaker();
+        final c = await startApp(tester, size, speaker: voz);
+        await enterPin(tester, demoWorker.pin);
+        final total = c.read(ordersProvider).where((o) => o.current).length;
+        expect(voz.said.last, contains('$total atividades pendentes'));
+        for (final o in c.read(ordersProvider)) {
+          expect(voz.said.last, isNot(contains(o.equipment.shortName)));
+        }
+
+        final primeira = c.read(ordersProvider).firstWhere((o) => o.id == 'o2');
+        await tester.longPress(find.byKey(const Key('order-o2')));
+        await tester.pumpAndSettle();
+        expect(voz.said.last, startsWith(primeira.spokenName));
+        expect(find.byKey(const Key('recognize-ok')), findsNothing); // segurar não abre a atividade
+      });
+
+      testWidgets('devolvida vem primeiro, com marca, motivo escrito e falado', (tester) async {
+        final voz = FakeSpeaker();
+        await abrirDevolvida(tester, size, voz);
+        expect(find.byKey(const Key('returned-o2')), findsOneWidget);
+        expect(find.byIcon(Icons.undo), findsOneWidget); // a atrasada o1 não leva a marca
+        final y = tester.getTopLeft(find.byKey(const Key('order-o2'))).dy;
+        expect(y, lessThan(tester.getTopLeft(find.byKey(const Key('order-o1'))).dy));
+
+        await tapKey(tester, 'order-o2');
+        expect(find.text(motivo), findsOneWidget);
+        expect(voz.said.last, contains(motivo));
+
+        await tapKey(tester, 'recognize-ok'); // tudo respondido: cai direto na revisão
+        expect(find.byKey(const Key('conclude')), findsOneWidget);
+        expect(find.text(motivo), findsOneWidget);
+        await drainTimers(tester);
+      });
+
+      testWidgets('devolvida sem mudança pede confirmação; corrigir não conclui', (tester) async {
+        final voz = FakeSpeaker();
+        final c = await abrirDevolvida(tester, size, voz);
+        await tapKey(tester, 'order-o2');
+        await tapKey(tester, 'recognize-ok');
+
+        await tapKey(tester, 'conclude');
+        expect(voz.said.last, Phrases.concludeUnchanged(motivo));
+        await tapKey(tester, 'conclude-fix');
+        expect(c.read(sessionProvider).finished, isNot(contains('o2')));
+        expect(find.byKey(const Key('conclude-fix')), findsNothing);
+
+        await tapKey(tester, 'conclude');
+        await tapKey(tester, 'conclude-anyway');
+        expect(c.read(sessionProvider).finished, contains('o2'));
+        expect(find.byKey(const Key('returned-o2')), findsNothing); // concluída perde a marca
+        await drainTimers(tester);
+      });
+
+      testWidgets('devolvida com resposta mudada conclui direto', (tester) async {
+        final c = await abrirDevolvida(tester, size, FakeSpeaker());
+        await tapKey(tester, 'order-o2');
+        await tapKey(tester, 'recognize-ok');
+        final item = orderById('o2').items.first.id;
+        c.read(sessionProvider.notifier).answer('o2', Answer(itemId: item, outcome: Outcome.done, at: DateTime.now()));
+        await tester.pumpAndSettle();
+
+        await tapKey(tester, 'conclude');
+        expect(find.byKey(const Key('conclude-anyway')), findsNothing);
+        expect(c.read(sessionProvider).finished, contains('o2'));
         await drainTimers(tester);
       });
 

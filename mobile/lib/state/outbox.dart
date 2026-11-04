@@ -87,7 +87,12 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
   String? lastError;
   DateTime? lastSent;
   var _flushing = false;
+  var _flushAgain = false;
   Future<void> _writing = Future.value();
+
+  /// Sobe a cada lote que o servidor respondeu. Quem baixa as ordens confere este
+  /// número: um download iniciado antes do envio não traz a resposta recém-enviada.
+  int delivered = 0;
 
   @override
   List<OutboxOp> build() => const [];
@@ -197,12 +202,20 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
   /// Envia o que der. Aceita ou repetida sai da fila; recusada fica marcada (atenção);
   /// falha de rede para tudo e tenta de novo na próxima vez.
   Future<void> flush() async {
-    if (!WorkersRepo.configured || _flushing || state.isEmpty) return;
+    if (!WorkersRepo.configured || state.isEmpty) return;
+    if (_flushing) {
+      // Resposta dada no meio de um envio: sai logo depois dele, sem esperar o próximo ciclo.
+      _flushAgain = true;
+      return;
+    }
     _flushing = true;
     final c = client();
     try {
-      await _sendOps(c);
-      await _sendMedia(c);
+      do {
+        _flushAgain = false;
+        await _sendOps(c);
+        await _sendMedia(c);
+      } while (_flushAgain);
       lastError = null;
       lastSent = DateTime.now();
     } catch (e) {
@@ -245,6 +258,7 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
           done.add(r['opId'] as String);
         }
       }
+      delivered++;
       state = state.where((o) => !done.contains(o.opId)).toList();
       for (final MapEntry(key: id, value: why) in refused.entries) {
         _reject({id}, why);

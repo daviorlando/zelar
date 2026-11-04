@@ -36,7 +36,8 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
       if (problems > 0) '$problems ${problems == 1 ? 'problema' : 'problemas'}',
       if (blocked > 0) '$blocked que não conseguiu',
     ];
-    return Phrases.finish('${parts.join(', ')}. Toque no botão verde, Concluir.');
+    final back = order.returned ? '${Phrases.returned(order.returnedReason!)} ' : '';
+    return back + Phrases.finish('${parts.join(', ')}. Toque no botão verde, Concluir.');
   }
 
   @override
@@ -46,6 +47,53 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
       ref.read(eventLogProvider.notifier).add('tela', 'finalizar ${order.equipment.shortName}');
       ref.read(speakerProvider).say(_summary(ref.read(sessionProvider).answersFor(order.id)));
     });
+  }
+
+  /// Devolvida e sem nenhuma mudança: confirma antes, para não voltar ao gestor do mesmo jeito.
+  Future<void> _tryConclude() async {
+    final session = ref.read(sessionProvider);
+    if (order.returned && !session.changed.contains(order.id)) {
+      final speaker = ref.read(speakerProvider);
+      final text = Phrases.concludeUnchanged(order.returnedReason!);
+      speaker.say(text);
+      final go = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialog) => AlertDialog(
+          scrollable: true,
+          title: const Text('Nada mudou'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ReturnedBanner(reason: order.returnedReason!),
+              const SizedBox(height: 16),
+              BigActionButton(
+                key: const Key('conclude-fix'),
+                label: 'Corrigir',
+                icon: Icons.edit,
+                color: ZeloColors.blocked,
+                compact: true,
+                spokenHelp: Phrases.fixButton,
+                onPressed: () => Navigator.of(dialog).pop(false),
+              ),
+              const SizedBox(height: 12),
+              BigActionButton(
+                key: const Key('conclude-anyway'),
+                label: 'Concluir assim mesmo',
+                icon: Icons.check_circle,
+                color: ZeloColors.ok,
+                compact: true,
+                spokenHelp: Phrases.concludeAnywayButton,
+                onPressed: () => Navigator.of(dialog).pop(true),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || go != true) return;
+    }
+    _conclude();
   }
 
   void _conclude() {
@@ -70,6 +118,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.undoItemId != null) UndoBanner(orderId: order.id, itemId: widget.undoItemId!),
+          if (order.returned) ...[ReturnedBanner(reason: order.returnedReason!), const SizedBox(height: 8)],
           Align(alignment: Alignment.centerRight, child: AudioButton(text: summary)),
           const SizedBox(height: 12),
           Expanded(
@@ -94,7 +143,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
         color: ZeloColors.ok,
         spokenHelp: Phrases.concludeButton,
         disabledHint: Phrases.answerMissing(order.items.length - answers.length),
-        onPressed: complete ? _conclude : null,
+        onPressed: complete ? _tryConclude : null,
       ),
     );
   }

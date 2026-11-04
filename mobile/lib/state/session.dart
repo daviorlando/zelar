@@ -15,6 +15,7 @@ class SessionState {
     this.failedAttempts = 0,
     this.answers = const {},
     this.finished = const {},
+    this.changed = const {},
     this.sync = SyncState.savedLocal,
   });
 
@@ -24,6 +25,11 @@ class SessionState {
   /// orderId -> itemId -> resposta.
   final Map<String, Map<String, Answer>> answers;
   final Set<String> finished;
+
+  /// Ordens com alguma resposta mudada desde a última conclusão. Só se devolve o que foi
+  /// concluído, então numa ordem devolvida isto diz se o funcionário corrigiu algo.
+  /// Não sobrevive a reiniciar o app: no pior caso a confirmação ao concluir aparece à toa.
+  final Set<String> changed;
   final SyncState sync;
 
   bool get locked => failedAttempts >= maxPinAttempts;
@@ -36,6 +42,7 @@ class SessionState {
     int? failedAttempts,
     Map<String, Map<String, Answer>>? answers,
     Set<String>? finished,
+    Set<String>? changed,
     SyncState? sync,
   }) {
     return SessionState(
@@ -43,6 +50,7 @@ class SessionState {
       failedAttempts: failedAttempts ?? this.failedAttempts,
       answers: answers ?? this.answers,
       finished: finished ?? this.finished,
+      changed: changed ?? this.changed,
       sync: sync ?? this.sync,
     );
   }
@@ -78,11 +86,21 @@ class SessionNotifier extends Notifier<SessionState> {
   /// Com painel configurado, cada mudança vira operação na fila de envio.
   OutboxNotifier? get _outbox => WorkersRepo.configured && state.worker != null ? ref.read(outboxProvider.notifier) : null;
 
+  /// Depois de gravar na fila, já tenta enviar: o gestor vê a resposta na hora.
+  /// Sem internet, a operação continua guardada e sai no próximo envio.
+  void _sendAfter(OutboxNotifier? outbox, Future<void>? saved) {
+    if (outbox != null && saved != null) unawaited(saved.then((_) => outbox.flush()));
+  }
+
   void answer(String orderId, Answer answer) {
     final order = {...state.answersFor(orderId), answer.itemId: answer};
-    state = state.copyWith(answers: {...state.answers, orderId: order}, sync: SyncState.savedLocal);
+    state = state.copyWith(
+      answers: {...state.answers, orderId: order},
+      changed: {...state.changed, orderId},
+      sync: SyncState.savedLocal,
+    );
     final help = answer.outcome == Outcome.help;
-    unawaited(_outbox?.addAnswer(
+    _sendAfter(_outbox, _outbox?.addAnswer(
       workerId: state.worker!.id,
       orderId: orderId,
       itemId: answer.itemId,
@@ -100,8 +118,9 @@ class SessionNotifier extends Notifier<SessionState> {
     state = state.copyWith(
       answers: {...state.answers, orderId: order},
       finished: {...state.finished}..remove(orderId),
+      changed: {...state.changed, orderId},
     );
-    unawaited(_outbox?.add(OutboxOp(
+    _sendAfter(_outbox, _outbox?.add(OutboxOp(
       opId: newOpId(),
       workerId: state.worker!.id,
       type: 'clear',
@@ -111,8 +130,8 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   void finish(String orderId) {
-    state = state.copyWith(finished: {...state.finished, orderId});
-    unawaited(_outbox?.add(OutboxOp(
+    state = state.copyWith(finished: {...state.finished, orderId}, changed: {...state.changed}..remove(orderId));
+    _sendAfter(_outbox, _outbox?.add(OutboxOp(
       opId: newOpId(),
       workerId: state.worker!.id,
       type: 'finish',

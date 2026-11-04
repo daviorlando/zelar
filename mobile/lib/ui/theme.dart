@@ -11,6 +11,9 @@ abstract final class ZeloColors {
   static const photo = scan;
   static const mic = Color(0xFFE65100);
   static const overdue = Color(0xFFB71C1C);
+
+  /// Devolvida pelo gestor: escura para não se confundir com nenhum botão de resposta.
+  static const returned = ink;
   static const surface = Color(0xFFF5F5F0);
   static const ink = Color(0xFF111111);
 }

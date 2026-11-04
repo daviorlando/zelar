@@ -9,6 +9,7 @@ import { hojeNaUnidade, periodoQueContem, somarDias } from "@/lib/schedule";
 import { setoresComAtividades } from "@/lib/setores";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { AoVivo } from "./ao-vivo";
 import { DetalheDaOrdem } from "./detalhe";
 import { Quadro } from "./quadro";
 
@@ -140,6 +141,7 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
         </Filtro>
       </div>
 
+      <AoVivo />
       <Quadro ordens={ordens} hoje={hoje} consulta={base} />
 
       {ordemAberta && (

@@ -41,14 +41,20 @@ abstract final class Phrases {
   static const otherPerson = 'Voltar: escolher outra foto.';
   static const noWorkers = 'A lista de funcionários ainda não foi baixada. Chame o gestor.';
   static const allDone = 'Tudo feito por hoje. Obrigado.';
+  static const loadFailed = 'Não consegui baixar as suas atividades. Puxe a tela para baixo para tentar de novo. Se continuar, chame o gestor.';
 
-  static String today(String worker, List<(String name, bool overdue)> pending) {
+  /// Só a quantidade: a lista pode ser longa. Cada atividade fala ao segurar o cartão.
+  /// Devolvida é a exceção: o gestor está esperando, então a voz avisa que existe.
+  static String today(String worker, {required int pending, int returned = 0}) {
     final hello = 'Olá, ${worker.split(' ').first}.';
-    if (pending.isEmpty) return '$hello $allDone';
-    final n = pending.length;
-    final names = pending.map((p) => p.$2 ? '${p.$1}, atrasado' : p.$1).join('. ');
-    return '$hello Você tem $n ${n == 1 ? 'equipamento' : 'equipamentos'} para hoje. $names. '
-        'Toque no equipamento para começar. Segure para ouvir.';
+    if (pending == 0) return '$hello $allDone';
+    final total = pending == 1 ? 'Você tem 1 atividade pendente.' : 'Você tem $pending atividades pendentes.';
+    final back = switch (returned) {
+      0 => '',
+      1 => ' 1 foi devolvida pelo gestor.',
+      _ => ' $returned foram devolvidas pelo gestor.',
+    };
+    return '$hello $total$back Para ouvir uma atividade, segure o botão dela. Para começar, toque nele.';
   }
 
   static String recognize(String equipment) =>
@@ -85,6 +91,15 @@ abstract final class Phrases {
 
   static String finish(String summary) => '$summary Para corrigir um item, toque nele na lista.';
   static const concluded = 'Pronto. Equipamento concluído.';
+
+  // Ordem devolvida pelo gestor. O motivo é o texto que ele digitou no painel.
+  static String returned(String reason) =>
+      'O gestor devolveu este equipamento. Ele disse: $reason. Suas respostas continuam guardadas. Corrija só o que ele pediu.';
+  static String concludeUnchanged(String reason) =>
+      'Você não mudou nenhuma resposta depois que o gestor devolveu. Ele disse: $reason. '
+      'Para corrigir, toque no botão azul. Se já está certo, toque no botão verde, Concluir assim mesmo.';
+  static const fixButton = 'Botão azul: voltar para a lista e corrigir uma resposta.';
+  static const concludeAnywayButton = 'Botão verde: concluir sem mudar nenhuma resposta.';
 
   // Medição.
   static String number(String typed, String unit) => '${typed.replaceAll(',', ' vírgula ')} $unit';
