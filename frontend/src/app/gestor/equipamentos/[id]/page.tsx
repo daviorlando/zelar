@@ -56,7 +56,7 @@ async function Detalhe({ params }: PageProps<"/gestor/equipamentos/[id]">) {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader eyebrow={`Setor ${principal.sector_code} · ${principal.tag}`} title={principal.name ?? principal.tag}>
-          {componentes.length} componentes · {atividades.length} atividades no plano
+          {componentes.length} {componentes.length === 1 ? "componente" : "componentes"} · {atividades.length} {atividades.length === 1 ? "atividade" : "atividades"} no plano
         </PageHeader>
         <div className="flex gap-2">
           <FormularioDeEquipamento
@@ -81,7 +81,7 @@ async function Detalhe({ params }: PageProps<"/gestor/equipamentos/[id]">) {
               [
                 ["Marca", principal.brand],
                 ["Modelo", principal.model],
-                ["Potência", principal.power_cv != null ? `${principal.power_cv} CV` : null],
+                ["Potência", principal.power_cv != null ? `${String(principal.power_cv).replace(".", ",")} CV` : null],
                 ["Rotação", principal.rpm != null ? `${principal.rpm} RPM` : null],
                 ["Temperatura de trabalho", principal.working_temp],
                 ["Lubrificante", principal.lubricant],
@@ -119,7 +119,7 @@ async function Detalhe({ params }: PageProps<"/gestor/equipamentos/[id]">) {
                     <TD className="num whitespace-nowrap text-muted-foreground">{c.tag}</TD>
                     <TD className="text-foreground">{c.name ?? "–"}</TD>
                     <TD>{[c.brand, c.model].filter(Boolean).join(" · ") || "–"}</TD>
-                    <TD num>{c.power_cv ?? "–"}</TD>
+                    <TD num>{c.power_cv != null ? String(c.power_cv).replace(".", ",") : "–"}</TD>
                     <TD num>{c.rpm ?? "–"}</TD>
                     <TD>{c.lubricant ?? "–"}</TD>
                     <TD>

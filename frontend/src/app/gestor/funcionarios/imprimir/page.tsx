@@ -44,6 +44,7 @@ async function Badges({ searchParams }: PageProps<"/gestor/funcionarios/imprimir
     .order("name");
   if (error) return <Card>Não consegui carregar: {error.message}</Card>;
   const workers = data as Pick<Worker, "id" | "name" | "photo_path" | "badge_token" | "badge_version">[];
+  if (workers.length === 0) return <Card>Nenhum funcionário ativo entre os marcados. Reative o cadastro para imprimir o crachá.</Card>;
 
   const paths = workers.flatMap((w) => (w.photo_path ? [w.photo_path] : []));
   const signed = paths.length ? (await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 600)).data : [];

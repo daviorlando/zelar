@@ -263,7 +263,7 @@ void main() {
         expect(find.byKey(const Key('blocked-o2')), findsOneWidget);
         await tester.longPress(find.byKey(const Key('order-o2')));
         await tester.pumpAndSettle();
-        expect(voz.said.last, contains('Faltam 1 itens'));
+        expect(voz.said.last, contains('Falta 1 item.'));
         expect(voz.said.last, contains('1 esperando o gestor'));
 
         await tapKey(tester, 'order-o2');

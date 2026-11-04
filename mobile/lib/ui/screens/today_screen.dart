@@ -174,7 +174,7 @@ class _OrderCard extends ConsumerWidget {
               .read(speakerProvider)
               .say(
                 '${order.spokenName}. ${!finished && Phrases.orderNote(order) != null ? '${Phrases.orderNote(order)} ' : ''}${order.overdue && !finished ? 'Atrasado. ' : ''}'
-                '${finished ? 'Feito.' : 'Faltam ${order.items.length - done} itens.'}${blocked > 0 && !finished ? ' $blocked esperando o gestor.' : ''}',
+                '${finished ? 'Feito.' : (order.items.length - done == 1 ? 'Falta 1 item.' : 'Faltam ${order.items.length - done} itens.')}${blocked > 0 && !finished ? ' $blocked esperando o gestor.' : ''}',
               ),
           child: IntrinsicHeight(
             child: Row(

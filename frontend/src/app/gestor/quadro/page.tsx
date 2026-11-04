@@ -105,7 +105,8 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
     total: o.work_order_item.length,
     // Impedido não está feito: igual ao anel do celular.
     respondidos: o.work_order_item.filter((i) => i.result && i.result !== "blocked").length,
-    problemas: o.work_order_item.filter((i) => i.result === "problem").length,
+    // Medição fora da faixa também é problema, como no celular.
+    problemas: o.work_order_item.filter((i) => i.result === "problem" || i.block_reason === "out_of_range").length,
     impedimentos: o.work_order_item
       .filter((i) => i.result === "blocked")
       .map((i) => (i.block_reason ? (MOTIVO[i.block_reason] ?? i.block_reason) : "Sem motivo")),

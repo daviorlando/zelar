@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { Camera, Eraser } from "lucide-react";
 import { Button } from "@/components/zelo/button";
 import { Card } from "@/components/zelo/card";
@@ -25,7 +25,13 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
   const [meusSetores, setMeusSetores] = useState<string[]>(marcados);
 
   return (
-    <form action={action} className="grid items-start gap-4 lg:grid-cols-[260px_1fr]">
+    <form
+      // Enviado à mão: com action={...}, o React limpa nome e foto a cada erro de validação.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const dados = new FormData(e.currentTarget);
+        startTransition(() => action(dados));
+      }} className="grid items-start gap-4 lg:grid-cols-[260px_1fr]">
       {worker && <input type="hidden" name="id" value={worker.id} />}
       <input type="hidden" name="pin" value={pin.join(",")} />
       {meusSetores.map((s) => (
