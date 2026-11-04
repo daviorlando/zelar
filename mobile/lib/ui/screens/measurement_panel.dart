@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
 import '../../domain/models.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-/// Medição: teclado numérico grande, unidade em símbolo e áudio, faixa verde/amarela/vermelha.
+/// Medição: teclado numérico grande, unidade em símbolo e áudio, faixa verde/amarela/vermelha
+/// (só quando o plano tem limites).
 /// Valor fora da faixa gera aviso falado, nunca bloqueio (escopo, seção 5).
 class MeasurementPanel extends ConsumerStatefulWidget {
   const MeasurementPanel({super.key, required this.measurement, required this.onConfirm, required this.onHelp});
@@ -43,13 +45,15 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
     if (value == null) return;
     final m = widget.measurement;
     final level = m.classify(value);
-    final spoken = '${_text.replaceAll(',', ' vírgula ')} ${m.spokenUnit}';
+    final spoken = Phrases.number(_text, m.spokenUnit);
+    final speaker = ref.read(speakerProvider);
     // Primeiro toque fora da faixa só avisa; o segundo registra (sem bloquear).
     if (level == 2 && !_warned) {
       setState(() => _warned = true);
-      ref.read(speakerProvider).say('$spoken. Valor fora do normal. Confira. Se estiver certo, toque de novo em confirmar.');
+      speaker.say('$spoken. ${Phrases.outOfRange}');
       return;
     }
+    if (level < 2) speaker.say('$spoken. ${!m.hasRange ? Phrases.noted : level == 0 ? Phrases.inRange : Phrases.nearLimit}');
     widget.onConfirm(value, level == 2);
   }
 
@@ -61,7 +65,7 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GestureDetector(
-          onTap: () => ref.read(speakerProvider).say(m.spokenUnit),
+          onTap: () => ref.read(speakerProvider).say(_text.isEmpty ? Phrases.typeNumberFirst : Phrases.number(_text, m.spokenUnit)),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -83,8 +87,11 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        RangeBar(measurement: m, value: value),
+        // Sem limites do responsável técnico não há faixa: o app só anota o número.
+        if (m.hasRange) ...[
+          const SizedBox(height: 8),
+          RangeBar(measurement: m, value: value),
+        ],
         const SizedBox(height: 8),
         Expanded(
           child: Column(
@@ -132,6 +139,7 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
                 icon: Icons.support_agent,
                 compact: true,
                 color: ZeloColors.blocked,
+                spokenHelp: Phrases.helpButton,
                 onPressed: widget.onHelp,
               ),
             ),
@@ -143,6 +151,8 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
                 icon: Icons.check_circle,
                 compact: true,
                 color: ZeloColors.ok,
+                spokenHelp: Phrases.confirmButton,
+                disabledHint: Phrases.typeNumberFirst,
                 onPressed: value == null ? null : _confirm,
               ),
             ),
@@ -163,8 +173,10 @@ class RangeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final m = measurement;
-    final lo = m.min - m.margin * 3;
-    final hi = m.max + m.margin * 3;
+    // Só desenhada quando há limites (MeasurementPanel confere `hasRange`).
+    final min = m.min!, max = m.max!;
+    final lo = min - m.margin * 3;
+    final hi = max + m.margin * 3;
     double pos(double v) => ((v - lo) / (hi - lo)).clamp(0.0, 1.0);
 
     return SizedBox(
@@ -182,8 +194,8 @@ class RangeBar extends StatelessWidget {
           return Stack(
             children: [
               zone(lo, hi, const Color(0xFFC62828)),
-              zone(m.min - m.margin, m.max + m.margin, ZeloColors.problem),
-              zone(m.min, m.max, const Color(0xFF2E7D32)),
+              zone(min - m.margin, max + m.margin, ZeloColors.problem),
+              zone(min, max, const Color(0xFF2E7D32)),
               if (value != null)
                 Positioned(
                   left: (pos(value!) * w - 6).clamp(0.0, w - 12),

@@ -127,7 +127,7 @@ Resultado do importador em modo simulação (26/10/2026): 870 atividades lidas, 
 
 **[decisão] Atribuição por setor e equipamento fixos.** O gestor associa cada trabalhador a setores inteiros (`user_sector`) ou a equipamentos específicos (`user_equipment`). O aplicativo mostra as ordens que vencem nesses setores e equipamentos. O gestor pode reatribuir uma ordem a outra pessoa (`work_order.assigned_user_id`); a reatribuição prevalece sobre a regra fixa e chega ao aparelho na próxima sincronização. Quando dois trabalhadores cobrem o mesmo setor, os dois veem as mesmas ordens; se ambos executarem o mesmo item offline, as duas execuções são preservadas como conflito (seção 8.2). O piloto mede a frequência desses conflitos para decidir se vale dividir os setores por equipamento.
 
-**[decisão]** Um celular por trabalhador. **[proposta]** Ativação inicial assistida e conectada pelo gestor (o gestor gera um QR de ativação no painel; o trabalhador aponta o celular); depois disso o aparelho fica vinculado ao trabalhador. Para retomar a sessão offline, o aplicativo usa um **PIN visual**: uma sequência de quatro figuras escolhidas em uma grade de nove (equivalente a um PIN numérico de quatro dígitos, sem exigir leitura). O gestor pode redefinir o PIN pelo painel; a redefinição chega na próxima sincronização. A foto do trabalhador identifica quem está registrando, mas não autentica.
+**[decisão]** Um celular por trabalhador. **[proposta]** Ativação inicial assistida e conectada pelo gestor (o gestor gera um QR de ativação no painel; o trabalhador aponta o celular); depois disso o aparelho fica vinculado ao trabalhador. Para retomar a sessão offline, o aplicativo usa um **PIN visual**: uma sequência de quatro figuras escolhidas em uma grade de nove (equivalente a um PIN numérico de quatro dígitos, sem exigir leitura). O gestor pode redefinir o PIN pelo painel; a redefinição chega na próxima sincronização. A foto do trabalhador identifica quem está registrando, mas não autentica. **[decisão, 27/10]** Cada funcionário tem cadastro próprio no painel e um **crachá com QR** impresso pelo gestor; ler o crachá entra direto no perfil, sem figuras. O QR leva só um código aleatório (o aparelho guarda apenas o hash); crachá perdido é invalidado no painel gerando um novo, e funcionário desativado não entra. O PIN visual fica como entrada alternativa sem crachá.
 
 Atividades como medições elétricas, ajustes e intervenções ficam restritas aos profissionais definidos pela empresa. A simplificação da linguagem não pode alterar o procedimento aprovado pelo responsável técnico.
 
@@ -139,14 +139,14 @@ Fluxo principal: identificar-se (PIN visual) → ver as tarefas de hoje → reco
 
 | Tela | Conteúdo | Observações de acessibilidade |
 | --- | --- | --- |
-| Entrada | Foto do trabalhador e grade do PIN visual | Áudio: "Toque suas quatro figuras" |
+| Entrada | Botão grande "Ler meu crachá" (QR); sem crachá, foto do trabalhador e grade do PIN visual | Crachá entra direto; áudio explica os dois caminhos |
 | Hoje | Lista de cartões, um por equipamento com tarefas vencendo; foto grande, nome curto, contador de itens e anel de progresso; atrasados primeiro, com faixa distinta | Cada cartão lê o nome do equipamento ao toque longo |
 | Reconhecer | Foto do equipamento em tela cheia e botão "Ler etiqueta" (QR) | O QR confirma; a foto é o caminho principal |
 | Item | Foto do ponto a verificar, botão de áudio grande, três botões de resposta (Tudo certo / Encontrei problema / Não consegui) | Ordem, cor, forma e áudio fixos em todas as telas |
 | Problema | Grade de motivos ilustrados + botão "Tirar foto" + botão "Gravar áudio" (segurar para falar) | Nenhum campo de texto obrigatório |
 | Medição | Teclado numérico grande, unidade exibida como símbolo e áudio, faixa esperada como barra verde/amarela/vermelha, botão "Preciso de ajuda" | Valor fora da faixa gera aviso falado, não bloqueio |
 | Finalizar | Resumo falado ("Você respondeu 6 itens, 1 problema"), botão "Concluir" | Confirmação em áudio antes do envio |
-| Estado | Ícone persistente no topo: salvo no celular / enviando / recebido / precisa de atenção | Toque no ícone reproduz a explicação em áudio |
+| Estado | Envio implícito: nada aparece enquanto o envio corre bem; ícone no topo só quando precisa de atenção | Toque no ícone reproduz a explicação em áudio ("chame o gestor") |
 
 **Requisitos de interface [decisão para o MVP]:**
 

@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
-import '../../data/fixtures.dart';
+import '../../data/orders_repo.dart';
 import '../../domain/models.dart';
 import '../../state/session.dart';
 import '../flow.dart';
@@ -26,9 +27,10 @@ class ItemScreen extends ConsumerStatefulWidget {
 }
 
 class _ItemScreenState extends ConsumerState<ItemScreen> {
-  late final order = orderById(widget.orderId);
+  late final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
   late final item = order.items[widget.index];
   late final component = order.equipment.component(item.componentId);
+  late final guide = Phrases.item(item);
   final _openedAt = DateTime.now();
   var _replays = 0;
 
@@ -37,7 +39,8 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(eventLogProvider.notifier).add('tela', 'item ${item.id} (${item.shortText})');
-      ref.read(speakerProvider).say(item.spokenText);
+      // Só fala quando é a tela visível (não quando está por baixo de Problema).
+      if (ModalRoute.of(context)?.isCurrent ?? true) ref.read(speakerProvider).say(guide);
     });
   }
 
@@ -59,7 +62,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
   @override
   Widget build(BuildContext context) {
     final eq = order.equipment;
-    final audio = AudioButton(text: item.spokenText, provisional: !item.recordedAudio, onPlay: () => _replays++);
+    final audio = AudioButton(text: guide, provisional: !item.recordedAudio, onPlay: () => _replays++);
     final measuring = item.type == ItemType.measurement;
 
     return ZeloScaffold(
@@ -79,7 +82,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 const SizedBox(width: 12),
                 Expanded(child: Text(item.shortText, style: Theme.of(context).textTheme.titleMedium)),
                 const SizedBox(width: 8),
-                AudioButton(text: item.spokenText, provisional: !item.recordedAudio, onPlay: () => _replays++, size: 72),
+                AudioButton(text: guide, provisional: !item.recordedAudio, onPlay: () => _replays++, size: 72),
               ],
             ),
             const SizedBox(height: 8),
@@ -116,6 +119,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 label: 'Tudo certo',
                 icon: Icons.check_circle,
                 color: ZeloColors.ok,
+                spokenHelp: Phrases.okButton,
                 onPressed: () => _record(Outcome.ok),
               ),
               const SizedBox(height: 12),
@@ -125,6 +129,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 icon: Icons.warning,
                 color: ZeloColors.problem,
                 foreground: ZeloColors.ink,
+                spokenHelp: Phrases.problemButton,
                 onPressed: () => _goReason('problema'),
               ),
               const SizedBox(height: 12),
@@ -133,6 +138,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 label: 'Não consegui',
                 icon: Icons.disabled_by_default,
                 color: ZeloColors.blocked,
+                spokenHelp: Phrases.blockedButton,
                 onPressed: () => _goReason('impedimento'),
               ),
             ],
@@ -145,6 +151,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 label: 'Fiz',
                 icon: Icons.check_circle,
                 color: ZeloColors.ok,
+                spokenHelp: Phrases.doneButton,
                 onPressed: () => _record(Outcome.done),
               ),
               const SizedBox(height: 12),
@@ -153,6 +160,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 label: 'Não consegui',
                 icon: Icons.disabled_by_default,
                 color: ZeloColors.blocked,
+                spokenHelp: Phrases.blockedButton,
                 onPressed: () => _goReason('impedimento'),
               ),
             ],
@@ -203,9 +211,9 @@ class _UndoBannerState extends ConsumerState<UndoBanner> {
         style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(ZeloSizes.minTouch)),
         icon: const Icon(Icons.undo, size: 36),
         label: const Text('Desfazer'),
-        onLongPress: () => ref.read(speakerProvider).say('Desfazer a última resposta'),
+        onLongPress: () => ref.read(speakerProvider).say(Phrases.undoButton),
         onPressed: () {
-          final order = orderById(widget.orderId);
+          final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
           ref.read(sessionProvider.notifier).undo(order.id, widget.itemId);
           ref.read(eventLogProvider.notifier).add('desfez', widget.itemId);
           final index = order.items.indexWhere((i) => i.id == widget.itemId);

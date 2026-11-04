@@ -1,26 +1,522 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+/* Variantes data-open/data-checked/... dos componentes Base UI. */
+@import "shadcn/tailwind.css";
+/* Tokens do Figma "SIG Agro IA — v2" (exportados pelo sigagroia-front):
+ * `--sig-*`, com :root escuro e `.light` claro. Aqui só se mapeia. */
+@import "../styles/tokens.css";
+
+/*
+ * Paleta Zelo — azul-marinho. Redefine os `--sig-*` de cor herdados do
+ * sigagroia: a estrutura e os componentes vêm de lá, a identidade não (o verde
+ * neon é de outro produto). Todo o mapeamento abaixo segue sozinho.
+ */
+:root {
+  --sig-fundo-base: #050b1a;
+  --sig-fundo-grade: #0f1d38;
+  --sig-painel-fundo: #0a1428;
+  --sig-painel-elevado: #0f1d38;
+  --sig-painel-realce: #172a4d;
+  --sig-painel-borda: #24406e;
+  --sig-painel-borda-forte: #6b85b3;
+  --sig-bg-surface: #0a1428;
+  --sig-bg-surface-raised: #0f1d38;
+  --sig-texto-primario: #e3ebf8;
+  --sig-texto-secundario: #9fb2d1;
+  --sig-texto-terciario: #7488ab;
+  --sig-texto-sobre-destaque: #04102a;
+  --sig-destaque-neon: #5b9dff;
+  --sig-destaque-neon-fundo: #5b9dff24;
+  --sig-destaque-neon-borda: #5b9dff99;
+  --sig-destaque-ciano: #7cc4ff;
+  --sig-brand-text: #8fbcff;
+  --sig-accent-text: #7cc4ff;
+  --sig-focus-ring: #7cc4ff;
+  --sig-vidro-fundo: #dbe6ff10;
+  --sig-vidro-fundo-forte: #0f1d38b8;
+  --sig-vidro-realce: #dbe6ff1a;
+  --sig-vidro-borda: #dbe6ff24;
+  --sig-vidro-brilho: #ffffff38;
+  --sig-fundo-scrim: #050b1a8c;
+  --sig-vidro-veu: #050b1a9e;
+  --sig-sombra-vidro: #01040c59;
+  --sig-sombra-vidro-forte: #01040c73;
+  /* Verde fica só como significado ("ok"), nunca como cor da marca. */
+  --sig-feedback-success: #4ade80;
+}
+
+.light {
+  --sig-fundo-base: #f3f6fb;
+  --sig-fundo-grade: #e6ecf6;
+  --sig-painel-fundo: #ffffff;
+  --sig-painel-elevado: #f6f8fc;
+  --sig-painel-realce: #e6ecf6;
+  --sig-painel-borda: #c9d3e4;
+  --sig-painel-borda-forte: #8a9bb8;
+  --sig-bg-surface: #ffffff;
+  --sig-bg-surface-raised: #ffffff;
+  --sig-texto-primario: #0b1a36;
+  --sig-texto-secundario: #3d5276;
+  --sig-texto-terciario: #56698c;
+  --sig-texto-sobre-destaque: #ffffff;
+  --sig-destaque-neon: #1d4ed8;
+  --sig-destaque-neon-fundo: #1d4ed81a;
+  --sig-destaque-neon-borda: #1d4ed873;
+  --sig-destaque-ciano: #0369a1;
+  --sig-brand-text: #1d4ed8;
+  --sig-accent-text: #0369a1;
+  --sig-focus-ring: #2563eb;
+  --sig-vidro-fundo: #ffffff9e;
+  --sig-vidro-fundo-forte: #ffffffd1;
+  --sig-vidro-realce: #0b1a360f;
+  --sig-vidro-borda: #0b1a361f;
+  --sig-fundo-scrim: #0b1a364d;
+  --sig-vidro-veu: #e6ecf6b8;
+  --sig-sombra-vidro: #0b1a361a;
+  --sig-sombra-vidro-forte: #0b1a3624;
+  --sig-feedback-success: #15803d;
+}
+
+/*
+ * Tema do painel do Zelo: linguagem "vidro floresta" (v2) do Figma SIG Agro IA,
+ * estrutura de nomes do shadcn (como no sigagroia-front). Escuro na base, claro
+ * em `.light`; o script de `layout.tsx` decide antes da primeira pintura.
+ */
+
+@custom-variant light (&:where(.light, .light *));
+@custom-variant dark (&:where(:not(.light, .light *)));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --r-xs: 0.25rem;
+  --r-sm: var(--sig-radius-sm);
+  --r-md: var(--sig-radius-md);
+  --r-lg: var(--sig-radius-lg);
+  --r-full: 999px;
+  --radius: var(--r-md);
+
+  /* ---------- Semânticas shadcn → tokens v2 (valem nos dois modos) ---------- */
+  --background: var(--sig-fundo-base);
+  --foreground: var(--sig-texto-primario);
+  --card: var(--sig-vidro-fundo);
+  --card-foreground: var(--sig-texto-primario);
+  /* Popover e menu opacos: lista de opção não deixa o conteúdo atravessar. */
+  --popover: var(--sig-painel-elevado);
+  --popover-foreground: var(--sig-texto-primario);
+  --muted: var(--sig-vidro-realce);
+  --muted-foreground: var(--sig-texto-secundario);
+  --subtle-foreground: var(--sig-texto-terciario);
+  --secondary: var(--sig-vidro-fundo);
+  --secondary-foreground: var(--sig-texto-primario);
+  --accent: var(--sig-vidro-realce);
+  --accent-foreground: var(--sig-texto-primario);
+  --border: var(--sig-vidro-borda);
+  --input: var(--sig-painel-borda);
+  --ring: var(--sig-focus-ring);
+
+  /* Azul claro com texto escuro no tema escuro; azul forte com texto branco no claro. */
+  --primary: var(--sig-destaque-neon);
+  --primary-foreground: var(--sig-texto-sobre-destaque);
+  --primary-soft: var(--sig-destaque-neon-fundo);
+
+  --success: var(--sig-feedback-success);
+  --success-soft: var(--sig-destaque-neon-fundo);
+  --warning: var(--sig-feedback-warning);
+  --warning-soft: color-mix(in srgb, var(--sig-feedback-warning) 14%, transparent);
+  --destructive: var(--sig-danger-fill);
+  --destructive-foreground: var(--sig-danger-on-fill);
+  --destructive-soft: color-mix(in srgb, var(--sig-danger-fill) 14%, transparent);
+  --info: var(--sig-feedback-info);
+  --info-soft: color-mix(in srgb, var(--sig-feedback-info) 14%, transparent);
+
+  --border-strong: var(--sig-painel-borda-forte);
+  --surface-glass: var(--sig-vidro-fundo);
+  --surface-glass-strong: var(--sig-vidro-fundo-forte);
+  --glass-border: var(--sig-vidro-borda);
+  --brand-border: var(--sig-destaque-neon-borda);
+  --brand-text: var(--sig-brand-text);
+  --accent-text: var(--sig-accent-text);
+
+  --glass: var(--sig-vidro-fundo-forte);
+  --glass-blur: 24px;
+  --glass-blur-strong: 32px;
+  --control-border: var(--sig-painel-borda-forte);
+
+  /* Frequências da planilha: cor + fundo 12% + borda 50%, como os setores do
+     Figma. Diária e semanal: ciano e violeta; mensal e trimestral: lima e
+     orquídea; semestral âmbar (o azul agora é da marca) e anual verde-água. */
+  --freq-daily: var(--sig-setor-irrigacao);
+  --freq-weekly: var(--sig-setor-fertirrigacao);
+  --freq-monthly: var(--sig-setor-manejo);
+  --freq-quarterly: var(--sig-setor-pulverizacao);
+  --freq-semiannual: #f59e0b;
+  --freq-annual: #2dd4bf;
+
+  --chart-1: #5b9dff;
+  --chart-2: var(--sig-p-cyan-400);
+  --chart-3: var(--sig-p-orange-400);
+  --chart-4: var(--sig-p-blue-400);
+  --chart-5: var(--sig-p-slate-400);
+  --chart-grid: var(--sig-vidro-borda);
+  --chart-passo-1: #bfd7ff;
+  --chart-passo-2: #8fbcff;
+  --chart-passo-3: #5b9dff;
+  --chart-passo-4: #2f6fe0;
+  --chart-fraco: var(--sig-texto-terciario);
+  --chart-vao: var(--sig-fundo-base);
+
+  --shadow-ambient: var(--sig-sombra-vidro);
+  --shadow-strong: var(--sig-sombra-vidro-forte);
+  --shadow-card:
+    0 8px 32px var(--shadow-ambient),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --shadow-dialog:
+    0 16px 48px var(--shadow-strong),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  --shadow-brand: 0 4px 16px color-mix(in srgb, var(--sig-destaque-neon) 45%, transparent);
+  --overlay: var(--sig-fundo-scrim);
+
+  --brilho-marca: color-mix(in srgb, var(--sig-destaque-neon) 16%, transparent);
+  --brilho-acento: color-mix(in srgb, var(--sig-destaque-ciano) 10%, transparent);
+}
+
+.light {
+  --freq-semiannual: #b45309;
+  --freq-annual: #0f766e;
+  --chart-1: #1d4ed8;
+  --chart-2: var(--sig-p-cyan-600);
+  --chart-3: var(--sig-p-orange-500);
+  --chart-4: var(--sig-p-blue-700);
+  --chart-5: var(--sig-p-slate-600);
+  --chart-passo-1: #93b4f5;
+  --chart-passo-2: #5b86e5;
+  --chart-passo-3: #1d4ed8;
+  --chart-passo-4: #1e3a8a;
+  --shadow-card:
+    0 8px 24px var(--shadow-ambient),
+    inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --shadow-dialog:
+    0 18px 40px var(--shadow-strong),
+    inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --brilho-marca: color-mix(in srgb, var(--sig-destaque-neon) 18%, transparent);
+  --brilho-acento: color-mix(in srgb, var(--sig-destaque-ciano) 12%, transparent);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-border-strong: var(--border-strong);
+  --color-surface-glass: var(--surface-glass);
+  --color-surface-glass-strong: var(--surface-glass-strong);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-control-border: var(--control-border);
+  --color-brand-border: var(--brand-border);
+  --color-brand-text: var(--brand-text);
+  --color-accent-text: var(--accent-text);
+
+  --color-severity-info: var(--sig-severity-info-fill);
+  --color-severity-info-foreground: var(--sig-severity-info-on-fill);
+  --color-severity-warning: var(--sig-severity-warning-fill);
+  --color-severity-warning-foreground: var(--sig-severity-warning-on-fill);
+  --color-severity-high: var(--sig-severity-high-fill);
+  --color-severity-high-foreground: var(--sig-severity-high-on-fill);
+  --color-severity-critical: var(--sig-severity-critical-fill);
+  --color-severity-critical-foreground: var(--sig-severity-critical-on-fill);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-passo-1: var(--chart-passo-1);
+  --color-chart-passo-2: var(--chart-passo-2);
+  --color-chart-passo-3: var(--chart-passo-3);
+  --color-chart-passo-4: var(--chart-passo-4);
+  --color-chart-fraco: var(--chart-fraco);
+  --color-chart-vao: var(--chart-vao);
+
+  --color-overlay: var(--overlay);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-freq-daily: var(--freq-daily);
+  --color-freq-weekly: var(--freq-weekly);
+  --color-freq-monthly: var(--freq-monthly);
+  --color-freq-quarterly: var(--freq-quarterly);
+  --color-freq-semiannual: var(--freq-semiannual);
+  --color-freq-annual: var(--freq-annual);
+
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-lg);
+  --radius-2xl: var(--r-lg);
+  --radius-full: var(--r-full);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-codec-bold), var(--font-inter), sans-serif;
+  --font-eyebrow: var(--font-codec-light), var(--font-inter), sans-serif;
+  --font-heading: var(--font-codec-bold), var(--font-inter), sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
+/*
+ * Escala tipográfica do Figma (estilos Web/*), em rem para crescer com a
+ * preferência de fonte do navegador. Bloco sem `inline` porque a utilitária
+ * `eyebrow` lê `var(--text-2xs)` como custom property de verdade.
+ */
+@theme {
+  --text-3xs: 0.625rem;    /* 10px — iniciais de avatar */
+  --text-3xs--line-height: 1.4;
+  --text-2xs: 0.6875rem;   /* 11px — eyebrow, cabeçalho de coluna */
+  --text-2xs--line-height: 1.3;
+  --text-xs: 0.75rem;      /* 12px — Web/Caption */
+  --text-xs--line-height: 1.34;
+  --text-sm: 0.8125rem;    /* 13px — texto secundário */
+  --text-sm--line-height: 1.5;
+  --text-md: 0.875rem;     /* 14px — Web/Body, formulário e tabela */
+  --text-md--line-height: 1.43;
+  --text-base: 0.875rem;   /* 14px — corpo (Web/Body) */
+  --text-base--line-height: 1.43;
+  --text-lg: 1rem;         /* 16px — Web/Body Large */
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.25rem;      /* 20px — Web/Heading 2 */
+  --text-xl--line-height: 1.4;
+  --text-2xl: 1.5rem;      /* 24px — Web/Heading 1 */
+  --text-2xl--line-height: 1.34;
+  --text-3xl: 2rem;        /* 32px — Web/Display */
+  --text-3xl--line-height: 1.25;
+}
+
+/* Sem desfoque, o vidro vira tinta — senão o texto de baixo atravessa. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --glass: rgb(5 11 26 / 0.97);
+    --card: var(--sig-bg-surface);
+  }
+  .light {
+    --glass: rgb(243 246 251 / 0.97);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-transparency: reduce) {
+  /* Quem pediu menos transparência ao sistema costuma ter pedido por leitura. */
+  :root {
+    --glass: var(--sig-bg-surface);
+    --card: var(--sig-bg-surface);
+    --glass-blur: 0px;
+    --glass-blur-strong: 0px;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  /* `html` sem font-size: respeita a preferência de fonte do usuário. */
+  html {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  body {
+    /* Brilhos azuis suaves: o vidro precisa de
+       algo atrás para aparecer. `fixed` para o fundo não rolar com a página. */
+    background:
+      radial-gradient(60rem 45rem at -5% -10%, var(--brilho-marca), transparent 70%),
+      radial-gradient(50rem 40rem at 105% -5%, var(--brilho-acento), transparent 70%),
+      radial-gradient(60rem 40rem at 60% 115%, var(--brilho-marca), transparent 70%),
+      var(--background);
+    background-attachment: fixed;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .num,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  ::selection {
+    background: var(--sig-destaque-neon-borda);
+    color: var(--foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /*
+   * Menos movimento: duração mínima, e não `animation: none` — o Base UI
+   * desmonta diálogo ouvindo `animationend`, que com `none` nunca dispara.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  * {
+    scrollbar-color: var(--sig-destaque-neon-borda) transparent;
+    scrollbar-width: thin;
+  }
+}
+
+/* Vidro denso: barras e painéis por cima do conteúdo que rola. */
+@utility vidro {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(140%);
+}
+
+/* Vidro de cartão (Glass/Surface do Figma). */
+@utility vidro-cartao {
+  background: var(--card);
+  border-color: var(--glass-border);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+}
+
+/* Rótulo de seção: 11px, tracking 0.18em, na cor da marca. */
+@utility eyebrow {
+  font-family: var(--font-codec-light), var(--font-inter), sans-serif;
+  font-size: var(--text-2xs);
+  line-height: var(--text-2xs--line-height);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brand-text);
+}
+
+
+/* Divisor em degradê na cor da marca. */
+@utility divisor-marca {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--sig-destaque-neon-borda), transparent);
+}
+
+/* Crachás: tamanho de cartão (85 × 54 mm), 2 × 5 por folha A4, linhas de corte. */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+.badge-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 85mm);
+  gap: 0;
+  justify-content: center;
+}
+
+.badge {
+  box-sizing: border-box;
+  width: 85mm;
+  height: 54mm;
+  display: grid;
+  grid-template-columns: 22mm 1fr 30mm;
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 3mm;
+  padding: 4mm;
+  border: 0.3mm dashed #999;
+  background: #fff;
+  color: #111;
+  break-inside: avoid;
+  print-color-adjust: exact;
+}
+
+.badge-photo {
+  width: 22mm;
+  height: 29mm;
+  border-radius: 2mm;
+  overflow: hidden;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7pt;
+  color: #777;
+}
+
+.badge-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5mm;
+  min-width: 0;
+}
+
+.badge-brand {
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6a1b9a;
+}
+
+.badge-name {
+  font-size: 13pt;
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.badge-meta {
+  font-size: 6.5pt;
+  color: #555;
+}
+
+.badge-qr svg {
+  width: 30mm;
+  height: 30mm;
+  display: block;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
 }

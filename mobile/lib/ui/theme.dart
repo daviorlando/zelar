@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 abstract final class ZeloColors {
   static const ok = Color(0xFF1B5E20);
   static const problem = Color(0xFFF9A825);
-  static const blocked = Color(0xFF455A64);
+  static const blocked = Color(0xFF1565C0);
+  static const scan = Color(0xFF6A1B9A);
+
+  /// Câmera usa o roxo da etiqueta (as duas abrem a câmera); microfone é laranja.
+  static const photo = scan;
+  static const mic = Color(0xFFE65100);
   static const overdue = Color(0xFFB71C1C);
   static const surface = Color(0xFFF5F5F0);
   static const ink = Color(0xFF111111);

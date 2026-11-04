@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
-import '../../data/fixtures.dart';
+import '../../data/orders_repo.dart';
 import '../../domain/models.dart';
 import '../../state/session.dart';
 import '../flow.dart';
@@ -23,11 +24,11 @@ class FinishScreen extends ConsumerStatefulWidget {
 }
 
 class _FinishScreenState extends ConsumerState<FinishScreen> {
-  late final order = orderById(widget.orderId);
+  late final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
 
   String _summary(Map<String, Answer> answers) {
     final missing = order.items.length - answers.length;
-    if (missing > 0) return 'Faltam $missing itens. Toque no ponto de interrogação.';
+    if (missing > 0) return Phrases.answerMissing(missing);
     final problems = answers.values.where((a) => a.isProblem).length;
     final blocked = answers.values.where((a) => a.outcome == Outcome.blocked || a.outcome == Outcome.help).length;
     final parts = [
@@ -35,7 +36,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
       if (problems > 0) '$problems ${problems == 1 ? 'problema' : 'problemas'}',
       if (blocked > 0) '$blocked que não conseguiu',
     ];
-    return '${parts.join(', ')}. Toque no botão verde para concluir.';
+    return Phrases.finish('${parts.join(', ')}. Toque no botão verde, Concluir.');
   }
 
   @override
@@ -50,15 +51,16 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
   void _conclude() {
     final notifier = ref.read(sessionProvider.notifier);
     notifier.finish(order.id);
-    notifier.setSync(SyncState.savedLocal);
+    // Concluir é um bom momento para mandar o que foi feito (sem esperar: segue offline se não houver rede).
+    ref.read(ordersProvider.notifier).sync();
     ref.read(eventLogProvider.notifier).add('concluiu', order.equipment.shortName);
-    ref.read(speakerProvider).say('Salvo no celular.');
+    ref.read(speakerProvider).say(Phrases.concluded);
     context.go('/hoje');
   }
 
   @override
   Widget build(BuildContext context) {
-    final answers = ref.watch(sessionProvider.select((s) => s.answersFor(order.id)));
+    final answers = ref.watch(sessionProvider.select((s) => s.answersFor(widget.orderId)));
     final complete = answers.length == order.items.length;
     final summary = _summary(answers);
 
@@ -90,6 +92,8 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
         label: 'Concluir',
         icon: Icons.check_circle,
         color: ZeloColors.ok,
+        spokenHelp: Phrases.concludeButton,
+        disabledHint: Phrases.answerMissing(order.items.length - answers.length),
         onPressed: complete ? _conclude : null,
       ),
     );

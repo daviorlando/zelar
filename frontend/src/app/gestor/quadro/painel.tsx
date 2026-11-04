@@ -1,0 +1,88 @@
+"use client";
+
+import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/zelo/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { cancelar, devolver, validar } from "./actions";
+import { PedirMotivo } from "./motivo";
+
+/** Painel lateral do detalhe: fecha voltando ao quadro com os mesmos filtros. */
+export function PainelLateral({ titulo, voltar, children }: { titulo: string; voltar: string; children: React.ReactNode }) {
+  const router = useRouter();
+  const fechar = () => router.push(voltar, { scroll: false });
+  return (
+    <Dialog open onOpenChange={(aberto) => !aberto && fechar()}>
+      <DialogContent
+        showCloseButton={false}
+        className="top-0 right-0 left-auto flex h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-y-0 border-r-0 p-0 sm:max-w-[34rem] data-open:slide-in-from-right data-open:zoom-in-100"
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+          <DialogTitle className="truncate text-md font-semibold">{titulo}</DialogTitle>
+          <button
+            type="button"
+            onClick={fechar}
+            className="grid size-8 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-4" aria-hidden />
+            <span className="sr-only">Fechar</span>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Validar, devolver e cancelar, conforme a situação da ordem. */
+export function AcoesDoDetalhe({ id, nome, situacao }: { id: string; nome: string; situacao: string }) {
+  const [pedido, setPedido] = useState<"devolver" | "cancelar" | null>(null);
+  const [validando, iniciar] = useTransition();
+  if (situacao === "cancelled") return null;
+  const podeValidar = situacao === "awaiting_validation";
+  const podeDevolver = situacao === "awaiting_validation" || situacao === "done";
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {podeValidar && (
+        <Button
+          variant="primary"
+          disabled={validando}
+          onClick={() =>
+            iniciar(async () => {
+              const r = await validar(id);
+              if (r.erro) toast.error(r.erro);
+              else toast.success(`${nome}: validada.`);
+            })
+          }
+        >
+          {validando ? "Validando…" : "Validar"}
+        </Button>
+      )}
+      {podeDevolver && <Button onClick={() => setPedido("devolver")}>Devolver ao funcionário</Button>}
+      <Button variant="ghost" className="ml-auto text-destructive" onClick={() => setPedido("cancelar")}>
+        Cancelar ordem
+      </Button>
+      {pedido && (
+        <PedirMotivo
+          titulo={pedido === "devolver" ? `Devolver ${nome}` : `Cancelar ${nome}`}
+          explicacao={
+            pedido === "devolver"
+              ? "A ordem volta para o celular do funcionário. Diga o que falta ou o que precisa ser refeito."
+              : "A ordem sai do quadro e não é mais cobrada. Fica registrado quem cancelou e por quê."
+          }
+          confirmar={pedido === "devolver" ? "Devolver" : "Cancelar ordem"}
+          perigo={pedido === "cancelar"}
+          aoConfirmar={async (motivo) => {
+            const r = pedido === "devolver" ? await devolver(id, motivo) : await cancelar(id, motivo);
+            if (r.erro) return r.erro;
+            toast.success(pedido === "devolver" ? `${nome}: devolvida.` : `${nome}: cancelada.`);
+          }}
+          aoFechar={() => setPedido(null)}
+        />
+      )}
+    </div>
+  );
+}

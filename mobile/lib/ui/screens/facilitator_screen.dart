@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../audio/speaker.dart';
+import '../../data/orders_repo.dart';
+import '../../data/workers_repo.dart';
+import '../../state/outbox.dart';
 import '../../domain/models.dart';
 import '../../state/session.dart';
 
@@ -64,12 +67,52 @@ class _FacilitatorScreenState extends ConsumerState<FacilitatorScreen> {
           Text('Desfazer usado: ${count('desfez')} | QR errado: ${count('qr errado')} | Pediu ajuda: $help'),
           Text('Ordens concluídas: ${session.finished.length}'),
           Text('Voz pt-BR offline: $_tts'),
+          Text(WorkersRepo.configured
+              ? 'Funcionários: ${ref.watch(workersProvider).length} (painel ${WorkersRepo.api})'
+                  '${ref.read(workersProvider.notifier).lastError == null ? '' : ' — sem atualizar: ${ref.read(workersProvider.notifier).lastError}'}'
+              : 'Funcionários: só o de teste (app sem ZELO_API)'),
+          Builder(builder: (context) {
+            final outbox = ref.watch(outboxProvider);
+            final orders = ref.watch(ordersProvider);
+            final o = ref.read(ordersProvider.notifier);
+            final f = ref.read(outboxProvider.notifier);
+            final rejected = outbox.where((x) => x.rejected).toList();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Ordens guardadas: ${orders.length} (${orders.where((x) => x.current).length} de hoje/período atual)'
+                    '${o.lastUpdate == null ? '' : ' — atualizadas ${TimeOfDay.fromDateTime(o.lastUpdate!).format(context)}'}'
+                    '${o.lastError == null ? '' : ' — sem atualizar: ${o.lastError}'}'),
+                Text('Fila de envio: ${f.pending} pendentes, ${rejected.length} recusadas'
+                    '${f.lastError == null ? '' : ' — ${f.lastError}'}'),
+                for (final r in rejected) Text('  recusada (${r.type}): ${r.reason ?? '?'}', style: const TextStyle(color: Colors.red)),
+              ],
+            );
+          }),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               OutlinedButton(onPressed: _checkTts, child: const Text('Verificar voz')),
+              OutlinedButton(
+                onPressed: () async {
+                  await ref.read(workersProvider.notifier).refresh();
+                  setState(() {});
+                },
+                child: const Text('Atualizar funcionários'),
+              ),
+              OutlinedButton(
+                onPressed: () async {
+                  await ref.read(ordersProvider.notifier).sync();
+                  setState(() {});
+                },
+                child: const Text('Enviar e atualizar agora'),
+              ),
+              OutlinedButton(
+                onPressed: () => ref.read(outboxProvider.notifier).discardRejected(),
+                child: const Text('Descartar recusadas'),
+              ),
               for (final s in SyncState.values)
                 OutlinedButton(
                   onPressed: () => ref.read(sessionProvider.notifier).setSync(s),

@@ -1,13 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../audio/speaker.dart';
 import '../domain/models.dart';
+import '../state/outbox.dart';
 import '../state/session.dart';
 import 'theme.dart';
 
-/// Botão grande de resposta. Toque longo fala o rótulo, para quem não lê.
+/// Botão grande de resposta. Toque longo fala o que o botão faz, para quem não lê;
+/// desativado, o toque fala por que ainda não funciona.
 class BigActionButton extends ConsumerWidget {
   const BigActionButton({
     super.key,
@@ -17,6 +21,8 @@ class BigActionButton extends ConsumerWidget {
     required this.onPressed,
     this.foreground = Colors.white,
     this.compact = false,
+    this.spokenHelp,
+    this.disabledHint,
   });
 
   final String label;
@@ -28,9 +34,17 @@ class BigActionButton extends ConsumerWidget {
   /// Versão para meia largura: ícone e texto menores, mesma altura de toque.
   final bool compact;
 
+  /// O que o botão faz, com a cor (ver Phrases). Sem valor, fala o rótulo.
+  final String? spokenHelp;
+
+  /// Falado ao tocar no botão desativado.
+  final String? disabledHint;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Semantics(
+    final speaker = ref.read(speakerProvider);
+    final hint = disabledHint;
+    final button = Semantics(
       button: true,
       label: label,
       child: SizedBox(
@@ -44,7 +58,7 @@ class BigActionButton extends ConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 20),
           ),
           onPressed: onPressed,
-          onLongPress: () => ref.read(speakerProvider).say(label),
+          onLongPress: () => speaker.say(spokenHelp ?? label),
           child: Row(
             children: [
               Icon(icon, size: compact ? 36 : 52),
@@ -61,6 +75,14 @@ class BigActionButton extends ConsumerWidget {
           ),
         ),
       ),
+    );
+    if (onPressed != null || hint == null) return button;
+    // Botão desativado não recebe toques; o detector por cima explica o que falta.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => speaker.say(hint),
+      onLongPress: () => speaker.say(spokenHelp ?? label),
+      child: button,
     );
   }
 }
@@ -86,7 +108,13 @@ class AudioButton extends ConsumerWidget {
             width: size,
             height: size,
             child: FilledButton(
-              style: FilledButton.styleFrom(shape: const CircleBorder(), padding: EdgeInsets.zero),
+              // Preto, para não se confundir com o azul do "Não consegui".
+              style: FilledButton.styleFrom(
+                backgroundColor: ZeloColors.ink,
+                foregroundColor: Colors.white,
+                shape: const CircleBorder(),
+                padding: EdgeInsets.zero,
+              ),
               onPressed: () {
                 onPlay?.call();
                 ref.read(speakerProvider).say(text);
@@ -113,27 +141,27 @@ class AudioButton extends ConsumerWidget {
   }
 }
 
-const _syncInfo = <SyncState, (IconData, Color, String)>{
-  SyncState.savedLocal: (Icons.phone_android, Color(0xFF1565C0), 'Salvo no celular. Vai ser enviado quando tiver internet.'),
-  SyncState.sending: (Icons.sync, Color(0xFF6A1B9A), 'Enviando.'),
-  SyncState.received: (Icons.cloud_done, ZeloColors.ok, 'Recebido. O gestor já tem tudo.'),
-  SyncState.attention: (Icons.error, ZeloColors.overdue, 'Precisa de atenção. Chame o gestor.'),
-};
-
-/// Ícone persistente de estado de sincronização; toque explica em áudio.
+/// Envio é implícito: o trabalhador não vê nada enquanto tudo corre bem.
+/// O ícone só aparece quando algo travou e o gestor precisa agir.
 class SyncStatusIcon extends ConsumerWidget {
   const SyncStatusIcon({super.key});
 
+  static const attentionText = 'Precisa de atenção. Chame o gestor.';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Envio é implícito: o ícone só aparece quando algo foi recusado ou está parado há mais de 24 h.
     final sync = ref.watch(sessionProvider.select((s) => s.sync));
-    final (icon, color, explanation) = _syncInfo[sync]!;
+    ref.watch(outboxProvider);
+    final stuck = ref.read(outboxProvider.notifier).needsAttention;
+    if (sync != SyncState.attention && !stuck) return const SizedBox.shrink();
     return IconButton(
+      key: const Key('sync-attention'),
       iconSize: 36,
       constraints: const BoxConstraints(minWidth: ZeloSizes.minTouch, minHeight: ZeloSizes.minTouch),
-      tooltip: explanation,
-      icon: Icon(icon, color: color),
-      onPressed: () => ref.read(speakerProvider).say(explanation),
+      tooltip: attentionText,
+      icon: const Icon(Icons.error, color: ZeloColors.overdue),
+      onPressed: () => ref.read(speakerProvider).say(attentionText),
     );
   }
 }
@@ -245,6 +273,26 @@ class ProgressRing extends StatelessWidget {
               : Text('${total - done}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         ],
       ),
+    );
+  }
+}
+
+/// Foto do funcionário guardada no celular; sem foto, silhueta.
+class WorkerAvatar extends StatelessWidget {
+  const WorkerAvatar({super.key, required this.worker, this.radius = 48});
+
+  final Worker? worker;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = worker?.photoPath;
+    final file = path == null ? null : File(path);
+    final hasPhoto = file != null && file.existsSync();
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: hasPhoto ? FileImage(file) : null,
+      child: hasPhoto ? null : Icon(Icons.person, size: radius * 1.3),
     );
   }
 }

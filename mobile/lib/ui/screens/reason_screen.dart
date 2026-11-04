@@ -6,8 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
 import '../../data/fixtures.dart';
+import '../../data/orders_repo.dart';
 import '../../domain/models.dart';
 import '../../state/session.dart';
 import '../flow.dart';
@@ -32,9 +34,11 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   /// Limite de 2 minutos por gravação (escopo, seção 6).
   static const _maxRecording = Duration(minutes: 2);
 
-  late final order = orderById(widget.orderId);
+  late final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
   late final item = order.items[widget.index];
-  late final reasons = widget.kind == ReasonKind.problem ? problemKinds : blockReasons;
+  late final component = order.equipment.component(item.componentId);
+  late final reasons =
+      widget.kind == ReasonKind.problem ? problemsByKind[component.kind]! : blockReasonsFor(item);
   final _recorder = AudioRecorder();
   Timer? _limit;
   String? _reason;
@@ -42,9 +46,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   String? _audioPath;
   var _recording = false;
 
-  String get _prompt => widget.kind == ReasonKind.problem
-      ? 'O que você encontrou? Toque na figura. Se puder, tire uma foto ou grave um áudio.'
-      : 'Por que não conseguiu? Toque na figura.';
+  String get _prompt => widget.kind == ReasonKind.problem ? Phrases.problem(component.shortName) : Phrases.blocked;
 
   @override
   void initState() {
@@ -109,9 +111,9 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
     }
   }
 
-  void _choose(String id, String label) {
+  void _choose(String id, String spoken) {
     setState(() => _reason = id);
-    ref.read(speakerProvider).say(label);
+    ref.read(speakerProvider).say(id == 'other' ? Phrases.chosenOther(spoken) : Phrases.chosen(spoken));
   }
 
   /// "Outro" exige ao menos o áudio explicando.
@@ -151,7 +153,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
               crossAxisSpacing: 10,
               childAspectRatio: 1.25,
               children: [
-                for (final (id, icon, label) in reasons)
+                for (final (id, icon, label, spoken) in reasons)
                   Semantics(
                     button: true,
                     selected: _reason == id,
@@ -165,7 +167,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
                       child: InkWell(
                         key: Key('reason-$id'),
                         borderRadius: BorderRadius.circular(16),
-                        onTap: () => _choose(id, label),
+                        onTap: () => _choose(id, spoken),
                         child: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Column(
@@ -188,10 +190,12 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
             children: [
               Expanded(
                 child: _MediaButton(
+                  color: ZeloColors.photo,
                   icon: Icons.photo_camera,
                   done: _photoPath != null,
                   label: 'Tirar foto',
                   onTap: _takePhoto,
+                  onLongPress: () => ref.read(speakerProvider).say(Phrases.photoButton),
                 ),
               ),
               const SizedBox(width: 12),
@@ -201,11 +205,12 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
                   onLongPressStart: (_) => _startRecording(),
                   onLongPressEnd: (_) => _stopRecording(),
                   child: _MediaButton(
+                    color: ZeloColors.mic,
                     icon: _recording ? Icons.fiber_manual_record : Icons.mic,
                     done: _audioPath != null,
                     recording: _recording,
                     label: 'Segure para gravar áudio',
-                    onTap: () => ref.read(speakerProvider).say('Segure o botão enquanto fala.'),
+                    onTap: () => ref.read(speakerProvider).say(Phrases.micButton),
                   ),
                 ),
               ),
@@ -218,6 +223,8 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
         label: 'Pronto',
         icon: Icons.check_circle,
         color: ZeloColors.ok,
+        spokenHelp: Phrases.readyButton,
+        disabledHint: _reason == null ? Phrases.chooseFigureFirst : Phrases.recordOtherFirst,
         onPressed: _canFinish ? _finish : null,
       ),
     );
@@ -225,13 +232,25 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
 }
 
 class _MediaButton extends StatelessWidget {
-  const _MediaButton({required this.icon, required this.done, required this.label, required this.onTap, this.recording = false});
+  const _MediaButton({
+    required this.color,
+    required this.icon,
+    required this.done,
+    required this.label,
+    required this.onTap,
+    this.onLongPress,
+    this.recording = false,
+  });
 
   final IconData icon;
   final bool done;
   final bool recording;
+
+  /// Cor fixa, falada nas instruções (roxo câmera, laranja microfone).
+  final Color color;
   final String label;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -239,22 +258,32 @@ class _MediaButton extends StatelessWidget {
       button: true,
       label: label,
       child: Material(
-        color: recording ? const Color(0xFFFFCDD2) : Colors.white,
+        // Gravando: vermelho, para ficar claro que o microfone está ligado.
+        color: recording ? ZeloColors.overdue : color,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: recording ? ZeloColors.overdue : Colors.black26, width: 3),
+          side: const BorderSide(color: ZeloColors.ink, width: 2),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: SizedBox(
             height: 88,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(icon, size: 56, color: recording ? ZeloColors.overdue : ZeloColors.ink),
+                Icon(icon, size: 56, color: Colors.white),
                 if (done)
-                  const Positioned(right: 8, top: 8, child: Icon(Icons.check_circle, color: ZeloColors.ok, size: 32)),
+                  const Positioned(
+                    right: 8,
+                    top: 8,
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.check_circle, color: ZeloColors.ok, size: 32),
+                    ),
+                  ),
               ],
             ),
           ),

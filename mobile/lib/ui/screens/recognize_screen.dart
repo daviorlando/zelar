@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
-import '../../data/fixtures.dart';
+import '../../data/orders_repo.dart';
 import '../../state/session.dart';
 import '../flow.dart';
 import '../theme.dart';
@@ -21,9 +22,9 @@ class RecognizeScreen extends ConsumerStatefulWidget {
 }
 
 class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
-  late final order = orderById(widget.orderId);
+  late final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
 
-  String get _prompt => 'Vá até ${order.equipment.shortName}. Quando chegar, toque no botão verde.';
+  String get _prompt => Phrases.recognize(order.equipment.shortName);
 
   @override
   void initState() {
@@ -74,13 +75,15 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
             label: 'Estou aqui',
             icon: Icons.check_circle,
             color: ZeloColors.ok,
+            spokenHelp: Phrases.hereButton,
             onPressed: () => _start('foto'),
           ),
           const SizedBox(height: 12),
           BigActionButton(
             label: 'Ler etiqueta',
             icon: Icons.qr_code_scanner,
-            color: const Color(0xFF1565C0),
+            color: ZeloColors.scan,
+            spokenHelp: Phrases.qrButton,
             onPressed: _scan,
           ),
         ],

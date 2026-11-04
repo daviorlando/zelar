@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Teste na rede local: o painel roda em http://IP-DO-COMPUTADOR:3000 (sem HTTPS).
+         Só no build de depuração; em produção o painel fica na Vercel, com HTTPS. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>
