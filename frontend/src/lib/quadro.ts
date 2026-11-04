@@ -26,6 +26,8 @@ export type CartaoDaOrdem = {
   total: number;
   respondidos: number;
   problemas: number;
+  /** Motivos dos itens "não consegui", já em texto. */
+  impedimentos: string[];
   devolvida: boolean;
 };
 

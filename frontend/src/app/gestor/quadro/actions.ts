@@ -29,6 +29,13 @@ async function registrar(
 /** O gestor conferiu as respostas: a ordem está concluída. */
 export async function validar(id: string): Promise<Resultado> {
   const { supabase, id: quem } = await gestor();
+  // "Não consegui" é verificação pendente: não pode virar Concluída.
+  const { count } = await supabase
+    .from("work_order_item")
+    .select("id", { count: "exact", head: true })
+    .eq("work_order_id", id)
+    .eq("result", "blocked");
+  if (count) return { erro: "Esta ordem tem item impedido. Devolva ao funcionário e libere o item." };
   const { data, error } = await supabase
     .from("work_order")
     .update({ status: "done", validated_at: new Date().toISOString(), validated_by: quem })
@@ -58,6 +65,17 @@ export async function devolver(id: string, motivo: string): Promise<Resultado> {
   // Situação de novo pelas respostas: em execução, impedida ou a fazer.
   await supabase.rpc("recalcular_ordem", { ordem: id });
   await registrar(supabase, quem, "devolver", id, texto);
+  revalidatePath("/gestor/quadro");
+  return {};
+}
+
+/** O gestor resolveu o que impedia: os itens voltam a pendentes e o funcionário é avisado no celular. */
+export async function liberar(id: string, resolucao: string): Promise<Resultado> {
+  const texto = resolucao.trim();
+  if (!texto) return { erro: "Escreva o que foi resolvido." };
+  const { supabase } = await gestor();
+  const { error } = await supabase.rpc("liberar_impedimento", { ordem: id, resolucao: texto });
+  if (error) return { erro: error.message };
   revalidatePath("/gestor/quadro");
   return {};
 }

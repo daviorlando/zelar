@@ -134,6 +134,7 @@ class WorkOrder {
     this.periodStart,
     this.dueDate,
     this.returnedReason,
+    this.releasedNote,
     bool overdue = false,
   }) : _overdue = overdue; // ignore: prefer_initializing_formals
 
@@ -148,11 +149,17 @@ class WorkOrder {
 
   /// O gestor devolveu a ordem para completar (motivo escrito por ele).
   final String? returnedReason;
+
+  /// O gestor resolveu o impedimento e liberou os itens (o que ele escreveu).
+  final String? releasedNote;
   final bool _overdue;
 
   /// Venceu antes de hoje e ainda não foi finalizada.
   /// O gestor devolveu: as respostas continuam, o funcionário corrige o que foi pedido.
   bool get returned => returnedReason?.trim().isNotEmpty ?? false;
+
+  /// O gestor resolveu o que impedia: os itens voltaram a pendentes.
+  bool get released => releasedNote?.trim().isNotEmpty ?? false;
 
   bool get overdue => _overdue || (dueDate != null && dueDate!.isBefore(today()));
 
@@ -190,6 +197,9 @@ class Answer {
 
   /// Medição fora da faixa conta como problema, sem bloquear o registro.
   bool get isProblem => outcome == Outcome.problem || reason == outOfRange;
+
+  /// "Não consegui" ou "preciso de ajuda": a verificação fica pendente, esperando o gestor.
+  bool get isBlocked => outcome == Outcome.blocked || outcome == Outcome.help;
 
   static const outOfRange = 'out_of_range';
 }

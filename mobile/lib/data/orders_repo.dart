@@ -121,6 +121,7 @@ ParsedOrders parseOrders(Map<String, dynamic> json) {
       periodStart: DateTime.parse(o['periodStart'] as String),
       dueDate: DateTime.parse(o['dueDate'] as String),
       returnedReason: o['returnedReason'] as String?,
+      releasedNote: o['releasedNote'] as String?,
     ));
   }
   return (orders: orders, answers: answers);

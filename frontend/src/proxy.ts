@@ -25,6 +25,11 @@ export async function proxy(request: NextRequest) {
     login.searchParams.set("voltar", request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.redirect(login);
   }
+  // Senha temporária: antes de usar o painel, a pessoa escolhe a própria.
+  const metadados = data.claims.user_metadata as { trocar_senha?: boolean } | undefined;
+  if (metadados?.trocar_senha && request.nextUrl.pathname !== "/gestor/minha-senha") {
+    return NextResponse.redirect(new URL("/gestor/minha-senha", request.url));
+  }
   return response;
 }
 

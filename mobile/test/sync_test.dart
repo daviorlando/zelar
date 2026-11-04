@@ -90,6 +90,14 @@ void main() {
       expect(item.measurement!.classify(9999), 0);
     });
 
+    test('aviso de liberação do gestor chega na ordem', () {
+      final json = sampleJson();
+      (json['orders'] as List).first['releasedNote'] = 'Ferramenta entregue';
+      final p = parseOrders(json);
+      expect(p.orders.firstWhere((x) => x.id == 'wo-1').released, isTrue);
+      expect(p.orders.firstWhere((x) => x.id == 'wo-futura').released, isFalse);
+    });
+
     test('atrasada e futura', () {
       final p = parseOrders(sampleJson());
       expect(p.orders.firstWhere((x) => x.id == 'wo-1').overdue, isTrue);

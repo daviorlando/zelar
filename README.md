@@ -20,8 +20,8 @@ Gera `backend/tools/importer/out/relatorio-conferencia.xlsx` (resumo, linhas ras
 
 ## Painel do gestor: funcionários e crachás
 
-1. Crie um projeto no [Supabase](https://supabase.com) e aplique `backend/supabase/migrations/` (SQL Editor, ou `npx supabase link` + `npx supabase db push` dentro de `backend/`).
-2. Em Authentication → Users, crie o usuário do gestor (e-mail e senha).
+1. Crie um projeto no [Supabase](https://supabase.com) e aplique as migrações: `cd backend && npm run db:migrate`.
+2. Em Authentication → Users, crie o **primeiro** gestor (e-mail e senha). Os próximos são criados no próprio painel, em **Gestores**.
 3. Copie `frontend/.env.example` para `frontend/.env.local` e preencha as chaves.
 
 ```bash
@@ -50,6 +50,20 @@ flutter build apk --debug    # APK para o teste de uso
 ```
 
 PIN de teste (trabalhador de teste, sem crachá): sol, casa, carro, estrela. Roteiro do teste com trabalhadores: `docs/sprint1-teste-de-uso.md`.
+
+## Começar a operação
+
+Nada gera ordem até o setor ser iniciado. No painel:
+
+1. **Equipamentos**: cadastre o que falta (setores, equipamentos, componentes e atividades).
+2. **Funcionários**: vincule ao menos um responsável ativo ao setor.
+3. **Implantação**: em **Iniciar setor**, escolha a data e confira a prévia.
+
+Primeiro vencimento: diária no próprio dia; semanal, mensal e trimestral seguem o calendário, e o período em andamento só conta se restar pelo menos metade dele; semestral e anual vencem um ciclo inteiro depois do início (e seguem contando a partir dessa data).
+
+## Gestores
+
+Em **Gestores**, **Novo gestor** pede nome e e-mail e gera uma senha temporária, mostrada uma única vez. No primeiro acesso, o painel exige uma senha nova. Dali também se gera nova senha e se desativa uma conta. Depende de `SUPABASE_SECRET_KEY` no servidor.
 
 ## Testes
 

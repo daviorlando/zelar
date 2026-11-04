@@ -2,7 +2,7 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, Ellipsis, Undo2 } from "lucide-react";
+import { AlertTriangle, Ban, Ellipsis, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
 import {
@@ -15,7 +15,7 @@ import {
 import { prazoRelativo, type CartaoDaOrdem } from "@/lib/quadro";
 import { cn } from "@/lib/utils";
 
-export type AcaoDoCartao = "validar" | "devolver" | "cancelar";
+export type AcaoDoCartao = "validar" | "devolver" | "cancelar" | "liberar";
 
 /**
  * Cartão de uma ordem: equipamento e setor; frequência e prazo; progresso.
@@ -72,6 +72,9 @@ export function Cartao({
               <Ellipsis className="size-4" aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {ordem.situacao === "blocked" && (
+                <DropdownMenuItem onClick={() => aoAgir("liberar", ordem)}>Liberar para refazer</DropdownMenuItem>
+              )}
               {ordem.situacao === "awaiting_validation" && (
                 <DropdownMenuItem onClick={() => aoAgir("validar", ordem)}>Validar</DropdownMenuItem>
               )}
@@ -91,6 +94,16 @@ export function Cartao({
         <PilulaDeFrequencia f={ordem.frequencia} />
         <span className={atrasada ? "font-medium text-destructive" : "text-muted-foreground"}>{prazo.texto}</span>
       </div>
+
+      {ordem.impedimentos.length > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-warning" title={ordem.impedimentos.join(", ")}>
+          <Ban className="size-3.5 shrink-0" aria-hidden />
+          <span className="truncate">
+            {ordem.impedimentos[0]}
+            {ordem.impedimentos.length > 1 && ` +${ordem.impedimentos.length - 1}`}
+          </span>
+        </p>
+      )}
 
       <div className="mt-2.5 flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden>

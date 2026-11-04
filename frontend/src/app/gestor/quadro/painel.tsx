@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/zelo/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { cancelar, devolver, validar } from "./actions";
+import { cancelar, devolver, liberar, validar } from "./actions";
 import { PedirMotivo } from "./motivo";
 
 /** Painel lateral do detalhe: fecha voltando ao quadro com os mesmos filtros. */
@@ -36,9 +36,9 @@ export function PainelLateral({ titulo, voltar, children }: { titulo: string; vo
   );
 }
 
-/** Validar, devolver e cancelar, conforme a situação da ordem. */
+/** Validar, devolver, liberar e cancelar, conforme a situação da ordem. */
 export function AcoesDoDetalhe({ id, nome, situacao }: { id: string; nome: string; situacao: string }) {
-  const [pedido, setPedido] = useState<"devolver" | "cancelar" | null>(null);
+  const [pedido, setPedido] = useState<"devolver" | "cancelar" | "liberar" | null>(null);
   const [validando, iniciar] = useTransition();
   if (situacao === "cancelled") return null;
   const podeValidar = situacao === "awaiting_validation";
@@ -46,6 +46,11 @@ export function AcoesDoDetalhe({ id, nome, situacao }: { id: string; nome: strin
 
   return (
     <div className="flex flex-wrap gap-2">
+      {situacao === "blocked" && (
+        <Button variant="primary" onClick={() => setPedido("liberar")}>
+          Liberar para refazer
+        </Button>
+      )}
       {podeValidar && (
         <Button
           variant="primary"
@@ -67,18 +72,21 @@ export function AcoesDoDetalhe({ id, nome, situacao }: { id: string; nome: strin
       </Button>
       {pedido && (
         <PedirMotivo
-          titulo={pedido === "devolver" ? `Devolver ${nome}` : `Cancelar ${nome}`}
+          titulo={`${{ devolver: "Devolver", cancelar: "Cancelar", liberar: "Liberar" }[pedido]} ${nome}`}
           explicacao={
-            pedido === "devolver"
-              ? "A ordem volta para o celular do funcionário. Diga o que falta ou o que precisa ser refeito."
-              : "A ordem sai do quadro e não é mais cobrada. Fica registrado quem cancelou e por quê."
+            {
+              devolver: "A ordem volta para o celular do funcionário. Diga o que falta ou o que precisa ser refeito.",
+              cancelar: "A ordem sai do quadro e não é mais cobrada. Fica registrado quem cancelou e por quê.",
+              liberar: "Os itens impedidos voltam a ficar pendentes e o funcionário é avisado no celular. Diga o que foi resolvido.",
+            }[pedido]
           }
-          confirmar={pedido === "devolver" ? "Devolver" : "Cancelar ordem"}
+          confirmar={{ devolver: "Devolver", cancelar: "Cancelar ordem", liberar: "Liberar para refazer" }[pedido]}
+          rotulo={pedido === "liberar" ? "O que foi resolvido" : "Motivo"}
           perigo={pedido === "cancelar"}
           aoConfirmar={async (motivo) => {
-            const r = pedido === "devolver" ? await devolver(id, motivo) : await cancelar(id, motivo);
+            const r = await { devolver, cancelar, liberar }[pedido](id, motivo);
             if (r.erro) return r.erro;
-            toast.success(pedido === "devolver" ? `${nome}: devolvida.` : `${nome}: cancelada.`);
+            toast.success(`${nome}: ${{ devolver: "devolvida", cancelar: "cancelada", liberar: "liberada para refazer" }[pedido]}.`);
           }}
           aoFechar={() => setPedido(null)}
         />

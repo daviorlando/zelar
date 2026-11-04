@@ -7,13 +7,14 @@ import '../domain/models.dart';
 abstract final class OrderFlow {
   static String item(String orderId, int index) => '/ordem/$orderId/item/$index';
 
-  static void goNext(BuildContext context, WorkOrder order, int index) {
+  /// Próximo item sem resposta: quem corrige uma ordem devolvida ou liberada não refaz
+  /// o que já respondeu. Procura depois do atual e, se não houver, nos anteriores.
+  static void goNext(BuildContext context, WorkOrder order, int index, Map<String, Answer> answers) {
     final undo = order.items[index].id;
-    if (index + 1 < order.items.length) {
-      context.go(item(order.id, index + 1), extra: undo);
-    } else {
-      context.go('/ordem/${order.id}/finalizar', extra: undo);
-    }
+    bool pending(int i) => !answers.containsKey(order.items[i].id);
+    final count = order.items.length;
+    final next = [for (var step = 1; step < count; step++) (index + step) % count].where(pending).firstOrNull;
+    context.go(next == null ? '/ordem/${order.id}/finalizar' : item(order.id, next), extra: undo);
   }
 
   /// Primeiro item sem resposta, ou a tela de finalizar quando todos foram respondidos.

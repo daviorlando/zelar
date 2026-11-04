@@ -40,8 +40,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       final fa = session.finished.contains(a.id) ? 1 : 0;
       final fb = session.finished.contains(b.id) ? 1 : 0;
       if (fa != fb) return fa - fb;
-      // Devolvida vem primeiro: o gestor está esperando a correção.
-      final back = (b.returned ? 1 : 0) - (a.returned ? 1 : 0);
+      // Devolvida ou liberada vem primeiro: o gestor está esperando.
+      final back = (b.returned || b.released ? 1 : 0) - (a.returned || a.released ? 1 : 0);
       if (back != 0) return back;
       final late = (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0);
       if (late != 0) return late;
@@ -56,7 +56,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     }
     final session = ref.read(sessionProvider);
     final pending = _visible(ref.read(ordersProvider), session).where((o) => !session.finished.contains(o.id));
-    ref.read(speakerProvider).say(Phrases.today(session.worker?.name ?? '', pending: pending.length, returned: pending.where((o) => o.returned).length));
+    ref.read(speakerProvider).say(Phrases.today(
+            session.worker?.name ?? '',
+            pending: pending.length,
+            returned: pending.where((o) => o.returned && !o.released).length,
+            released: pending.where((o) => o.released).length,
+          ));
   }
 
   @override
@@ -142,14 +147,18 @@ class _OrderCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final eq = order.equipment;
-    final done = session.answersFor(order.id).length;
+    final answers = session.answersFor(order.id).values;
+    final blocked = answers.where((a) => a.isBlocked).length;
+    // Impedido não está feito: o anel e o "Faltam" não contam.
+    final done = answers.length - blocked;
     final finished = session.finished.contains(order.id);
     final hasProblem = session.answersFor(order.id).values.any((a) => a.isProblem);
-    final returned = order.returned && !finished;
+    final returned = order.returned && !order.released && !finished;
+    final released = order.released && !finished;
 
     return Semantics(
       button: true,
-      label: '${order.spokenName}${returned ? ', devolvido pelo gestor' : ''}${order.overdue && !finished ? ', atrasado' : ''}',
+      label: '${order.spokenName}${returned ? ', devolvido pelo gestor' : ''}${released ? ', liberado pelo gestor' : ''}${blocked > 0 && !finished ? ', esperando o gestor' : ''}${order.overdue && !finished ? ', atrasado' : ''}',
       child: Material(
         color: Colors.white,
         elevation: 1,
@@ -164,15 +173,15 @@ class _OrderCard extends ConsumerWidget {
           onLongPress: () => ref
               .read(speakerProvider)
               .say(
-                '${order.spokenName}. ${returned ? '${Phrases.returned(order.returnedReason!)} ' : ''}${order.overdue && !finished ? 'Atrasado. ' : ''}'
-                '${finished ? 'Feito.' : 'Faltam ${order.items.length - done} itens.'}',
+                '${order.spokenName}. ${!finished && Phrases.orderNote(order) != null ? '${Phrases.orderNote(order)} ' : ''}${order.overdue && !finished ? 'Atrasado. ' : ''}'
+                '${finished ? 'Feito.' : 'Faltam ${order.items.length - done} itens.'}${blocked > 0 && !finished ? ' $blocked esperando o gestor.' : ''}',
               ),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Faixa distinta para devolvidos e atrasados: cor + ícone.
-                Container(width: 12, color: returned ? ZeloColors.returned : (order.overdue && !finished ? ZeloColors.overdue : Colors.transparent)),
+                Container(width: 12, color: returned || released ? ZeloColors.returned : (order.overdue && !finished ? ZeloColors.overdue : Colors.transparent)),
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: SizedBox(
@@ -194,6 +203,8 @@ class _OrderCard extends ConsumerWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (returned) Icon(Icons.undo, key: Key('returned-${order.id}'), color: ZeloColors.returned, size: 32),
+                            if (released) Icon(Icons.lock_open, key: Key('released-${order.id}'), color: ZeloColors.returned, size: 32),
+                            if (blocked > 0 && !finished) Icon(Icons.block, key: Key('blocked-${order.id}'), color: ZeloColors.blocked, size: 32),
                             if (order.frequency != Frequency.daily) _FrequencyTag(order.frequency),
                             if (order.overdue && !finished) const Icon(Icons.alarm, color: ZeloColors.overdue, size: 32),
                             if (hasProblem) const Icon(Icons.warning, color: ZeloColors.problem, size: 32),

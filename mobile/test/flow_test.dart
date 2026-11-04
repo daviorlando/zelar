@@ -77,6 +77,29 @@ Future<void> entrarComListaCarregando(WidgetTester tester) async {
 }
 
 const motivo = 'Refazer a limpeza';
+const resolvido = 'Ferramenta entregue';
+
+class OrdensComLiberada extends OrdersNotifier {
+  @override
+  List<WorkOrder> build() => [
+        orderById('o1'),
+        WorkOrder(id: 'o2', equipment: orderById('o2').equipment, items: orderById('o2').items, releasedNote: resolvido),
+      ];
+}
+
+/// Responde tudo da o2, com o primeiro item em "não consegui".
+Future<ProviderContainer> abrirImpedida(WidgetTester tester, Size size, FakeSpeaker voz) async {
+  final c = await startApp(tester, size, speaker: voz);
+  await enterPin(tester, demoWorker.pin);
+  final s = c.read(sessionProvider.notifier);
+  final itens = orderById('o2').items;
+  s.answer('o2', Answer(itemId: itens.first.id, outcome: Outcome.blocked, at: DateTime.now(), reason: 'no_tool'));
+  for (final i in itens.skip(1)) {
+    s.answer('o2', Answer(itemId: i.id, outcome: Outcome.ok, at: DateTime.now()));
+  }
+  await tester.pumpAndSettle();
+  return c;
+}
 
 /// A segunda ordem de demonstração, devolvida pelo gestor com as respostas guardadas.
 class OrdensComDevolvida extends OrdersNotifier {
@@ -211,6 +234,70 @@ void main() {
         await tester.pumpAndSettle();
         expect(voz.said.last, startsWith(primeira.spokenName));
         expect(find.byKey(const Key('recognize-ok')), findsNothing); // segurar não abre a atividade
+      });
+
+      testWidgets('depois de responder, vai só para o que falta', (tester) async {
+        final c = await startApp(tester, size);
+        await enterPin(tester, demoWorker.pin);
+        final itens = orderById('o1').items;
+        expect(itens.length, greaterThanOrEqualTo(3));
+        // Como numa ordem liberada: falta o primeiro e o último; os do meio já têm resposta.
+        final s = c.read(sessionProvider.notifier);
+        for (final i in itens.sublist(1, itens.length - 1)) {
+          s.answer('o1', Answer(itemId: i.id, outcome: Outcome.ok, at: DateTime.now()));
+        }
+        await tester.pumpAndSettle();
+        await tapKey(tester, 'order-o1');
+        await tapKey(tester, 'recognize-ok');
+        expect(find.text('1 / ${itens.length}'), findsOneWidget);
+
+        await tapKey(tester, 'answer-ok');
+        expect(find.text('${itens.length} / ${itens.length}'), findsOneWidget);
+        expect(c.read(sessionProvider).answersFor('o1').length, itens.length - 1);
+        await drainTimers(tester);
+      });
+
+      testWidgets('item impedido: cartão marca, não conta como feito e Concluir fica bloqueado', (tester) async {
+        final voz = FakeSpeaker();
+        final c = await abrirImpedida(tester, size, voz);
+        expect(find.byKey(const Key('blocked-o2')), findsOneWidget);
+        await tester.longPress(find.byKey(const Key('order-o2')));
+        await tester.pumpAndSettle();
+        expect(voz.said.last, contains('Faltam 1 itens'));
+        expect(voz.said.last, contains('1 esperando o gestor'));
+
+        await tapKey(tester, 'order-o2');
+        await tapKey(tester, 'recognize-ok');
+        expect(voz.said.last, contains(Phrases.waitingManager(1)));
+
+        await tester.tap(find.byKey(const Key('conclude')));
+        await tester.pumpAndSettle();
+        expect(c.read(sessionProvider).finished, isNot(contains('o2')));
+        expect(voz.said.last, Phrases.waitingManager(1));
+
+        // Resolveu sozinho: responde de novo e já pode concluir.
+        final item = orderById('o2').items.first.id;
+        c.read(sessionProvider.notifier).answer('o2', Answer(itemId: item, outcome: Outcome.ok, at: DateTime.now()));
+        await tester.pumpAndSettle();
+        await tapKey(tester, 'conclude');
+        expect(c.read(sessionProvider).finished, contains('o2'));
+        await drainTimers(tester);
+      });
+
+      testWidgets('liberada pelo gestor: primeiro na lista, com marca, aviso escrito e falado', (tester) async {
+        final voz = FakeSpeaker();
+        await startApp(tester, size, speaker: voz, overrides: [ordersProvider.overrideWith(OrdensComLiberada.new)]);
+        await enterPin(tester, demoWorker.pin);
+        expect(voz.said.last, contains('1 foi liberada pelo gestor'));
+        expect(find.byKey(const Key('released-o2')), findsOneWidget);
+        final y = tester.getTopLeft(find.byKey(const Key('order-o2'))).dy;
+        expect(y, lessThan(tester.getTopLeft(find.byKey(const Key('order-o1'))).dy));
+
+        await tapKey(tester, 'order-o2');
+        expect(find.text(resolvido), findsOneWidget);
+        expect(find.text('Liberado pelo gestor'), findsOneWidget);
+        expect(voz.said.last, contains(resolvido));
+        await drainTimers(tester);
       });
 
       testWidgets('devolvida vem primeiro, com marca, motivo escrito e falado', (tester) async {

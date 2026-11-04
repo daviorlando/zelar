@@ -10,6 +10,7 @@ type Linha = {
   due_date: string;
   status: string;
   returned_reason: string | null;
+  released_note: string | null;
   work_order_item: {
     id: string;
     result: string | null;
@@ -18,6 +19,7 @@ type Linha = {
     plan_item: {
       id: string;
       equipment_id: string;
+      source_row: number | null;
       item_type: string;
       instruction_kind: string;
       activity: string;
@@ -53,9 +55,9 @@ export async function GET(request: Request) {
   let consulta = supabase
     .from("work_order")
     .select(
-      `id, equipment_id, frequency, period_start, due_date, status, returned_reason,
+      `id, equipment_id, frequency, period_start, due_date, status, returned_reason, released_note,
        work_order_item (id, result, measured_value, block_reason,
-         plan_item:plan_item_id (id, equipment_id, item_type, instruction_kind, activity, measurement_unit, measurement_min, measurement_max))`,
+         plan_item:plan_item_id (id, equipment_id, source_row, item_type, instruction_kind, activity, measurement_unit, measurement_min, measurement_max))`,
     )
     .in("status", ["open", "in_progress", "blocked"])
     .lte("period_start", somarDias(hoje, JANELA_DIAS))
@@ -67,6 +69,9 @@ export async function GET(request: Request) {
   const { data, error } = await consulta;
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const ordens = (data as unknown as Linha[]).filter((o) => o.work_order_item.length > 0);
+  // O banco não garante ordem (muda depois de cada resposta): o funcionário vê sempre a mesma sequência.
+  const fila = (i: Linha["work_order_item"][number]) => i.plan_item.source_row ?? Number.MAX_SAFE_INTEGER;
+  for (const o of ordens) o.work_order_item.sort((a, b) => fila(a) - fila(b) || a.plan_item.id.localeCompare(b.plan_item.id));
 
   const planItems = new Map<string, Linha["work_order_item"][number]["plan_item"]>();
   for (const o of ordens) for (const i of o.work_order_item) planItems.set(i.plan_item.id, i.plan_item);
@@ -111,6 +116,7 @@ export async function GET(request: Request) {
       dueDate: o.due_date,
       status: o.status,
       returnedReason: o.returned_reason,
+      releasedNote: o.released_note,
       items: o.work_order_item.map((i) => ({
         id: i.id,
         planItemId: i.plan_item.id,

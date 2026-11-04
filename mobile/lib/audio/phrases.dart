@@ -45,7 +45,7 @@ abstract final class Phrases {
 
   /// Só a quantidade: a lista pode ser longa. Cada atividade fala ao segurar o cartão.
   /// Devolvida é a exceção: o gestor está esperando, então a voz avisa que existe.
-  static String today(String worker, {required int pending, int returned = 0}) {
+  static String today(String worker, {required int pending, int returned = 0, int released = 0}) {
     final hello = 'Olá, ${worker.split(' ').first}.';
     if (pending == 0) return '$hello $allDone';
     final total = pending == 1 ? 'Você tem 1 atividade pendente.' : 'Você tem $pending atividades pendentes.';
@@ -54,7 +54,12 @@ abstract final class Phrases {
       1 => ' 1 foi devolvida pelo gestor.',
       _ => ' $returned foram devolvidas pelo gestor.',
     };
-    return '$hello $total$back Para ouvir uma atividade, segure o botão dela. Para começar, toque nele.';
+    final free = switch (released) {
+      0 => '',
+      1 => ' 1 foi liberada pelo gestor.',
+      _ => ' $released foram liberadas pelo gestor.',
+    };
+    return '$hello $total$back$free Para ouvir uma atividade, segure o botão dela. Para começar, toque nele.';
   }
 
   static String recognize(String equipment) =>
@@ -95,6 +100,17 @@ abstract final class Phrases {
   // Ordem devolvida pelo gestor. O motivo é o texto que ele digitou no painel.
   static String returned(String reason) =>
       'O gestor devolveu este equipamento. Ele disse: $reason. Suas respostas continuam guardadas. Corrija só o que ele pediu.';
+  static String released(String note) => 'O gestor resolveu o que impedia. Ele disse: $note. Agora você já pode fazer o que faltou.';
+
+  /// O aviso do gestor nesta ordem, se houver. Liberação é o mais recente: vem primeiro.
+  static String? orderNote(WorkOrder order) => order.released
+      ? released(order.releasedNote!)
+      : order.returned
+          ? returned(order.returnedReason!)
+          : null;
+
+  static String waitingManager(int blocked) => 'Ainda não dá para concluir: '
+      '${blocked == 1 ? '1 item espera' : '$blocked itens esperam'} o gestor. Se você resolveu, toque no item e responda de novo.';
   static String concludeUnchanged(String reason) =>
       'Você não mudou nenhuma resposta depois que o gestor devolveu. Ele disse: $reason. '
       'Para corrigir, toque no botão azul. Se já está certo, toque no botão verde, Concluir assim mesmo.';

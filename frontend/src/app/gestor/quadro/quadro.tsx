@@ -17,7 +17,7 @@ import { fundoSuaveDoTom } from "@/components/zelo/badge";
 import { SensorDeMouse, SensorDeToque } from "@/components/zelo/sensores";
 import { COLUNAS, type CartaoDaOrdem, type SituacaoDaOrdem } from "@/lib/quadro";
 import { cn } from "@/lib/utils";
-import { cancelar, devolver, validar } from "./actions";
+import { cancelar, devolver, liberar, validar } from "./actions";
 import { Cartao, type AcaoDoCartao } from "./cartao";
 import { PedirMotivo } from "./motivo";
 
@@ -33,12 +33,33 @@ const ANUNCIOS = {
   onDragCancel: () => "Desisti; a ordem voltou ao lugar.",
 };
 
-type Pedido = { acao: "devolver" | "cancelar"; ordem: CartaoDaOrdem };
+type Pedido = { acao: "devolver" | "cancelar" | "liberar"; ordem: CartaoDaOrdem };
+
+const TEXTO_DO_PEDIDO = {
+  devolver: {
+    titulo: "Devolver",
+    explicacao: "A ordem volta para o celular do funcionário. Diga o que falta ou o que precisa ser refeito.",
+    confirmar: "Devolver",
+    sucesso: "devolvida ao funcionário",
+  },
+  cancelar: {
+    titulo: "Cancelar",
+    explicacao: "A ordem sai do quadro e não é mais cobrada. Fica registrado quem cancelou e por quê.",
+    confirmar: "Cancelar ordem",
+    sucesso: "cancelada",
+  },
+  liberar: {
+    titulo: "Liberar",
+    explicacao: "Os itens impedidos voltam a ficar pendentes e o funcionário é avisado no celular. Diga o que foi resolvido.",
+    confirmar: "Liberar para refazer",
+    sucesso: "liberada para refazer",
+  },
+} as const;
 
 /**
  * O quadro de ordens. As colunas seguem as respostas do celular; o gestor só move
- * onde a decisão é dele: validar (Aguardando validação → Concluída) e devolver
- * (→ A fazer). Cancelar fica no menu do cartão. O movimento é otimista e volta se
+ * onde a decisão é dele: validar (Aguardando validação → Concluída), devolver e
+ * liberar um impedimento (→ A fazer). Cancelar fica no menu do cartão. O movimento é otimista e volta se
  * o servidor recusar.
  */
 export function Quadro({ ordens, hoje, consulta }: { ordens: CartaoDaOrdem[]; hoje: string; consulta: string }) {
@@ -80,9 +101,9 @@ export function Quadro({ ordens, hoje, consulta }: { ordens: CartaoDaOrdem[]; ho
   async function confirmarPedido(motivo: string) {
     if (!pedido) return;
     const { acao, ordem } = pedido;
-    const r = acao === "devolver" ? await devolver(ordem.id, motivo) : await cancelar(ordem.id, motivo);
+    const r = await { devolver, cancelar, liberar }[acao](ordem.id, motivo);
     if (r.erro) return r.erro;
-    toast.success(acao === "devolver" ? `${ordem.equipamento}: devolvida ao funcionário.` : `${ordem.equipamento}: cancelada.`);
+    toast.success(`${ordem.equipamento}: ${TEXTO_DO_PEDIDO[acao].sucesso}.`);
   }
 
   function agir(acao: AcaoDoCartao, ordem: CartaoDaOrdem) {
@@ -99,10 +120,13 @@ export function Quadro({ ordens, hoje, consulta }: { ordens: CartaoDaOrdem[]; ho
     if (de === para) return;
     if (de === "awaiting_validation" && para === "done") return fazerValidar(ordem);
     if ((de === "awaiting_validation" || de === "done") && para === "open") return setPedido({ acao: "devolver", ordem });
+    if (de === "blocked" && para === "open") return setPedido({ acao: "liberar", ordem });
     toast.info(
-      para === "done"
-        ? "Para concluir, a ordem precisa estar em Aguardando validação: o funcionário conclui no celular."
-        : "Essa coluna muda sozinha pelas respostas do celular.",
+      de === "blocked"
+        ? "Para tirar daqui, libere o impedimento: arraste para A fazer ou use o menu do cartão."
+        : para === "done"
+          ? "Para concluir, a ordem precisa estar em Aguardando validação: o funcionário conclui no celular."
+          : "Essa coluna muda sozinha pelas respostas do celular.",
     );
   }
 
@@ -137,13 +161,10 @@ export function Quadro({ ordens, hoje, consulta }: { ordens: CartaoDaOrdem[]; ho
 
       {pedido && (
         <PedirMotivo
-          titulo={pedido.acao === "devolver" ? `Devolver ${pedido.ordem.equipamento}` : `Cancelar ${pedido.ordem.equipamento}`}
-          explicacao={
-            pedido.acao === "devolver"
-              ? "A ordem volta para o celular do funcionário. Diga o que falta ou o que precisa ser refeito."
-              : "A ordem sai do quadro e não é mais cobrada. Fica registrado quem cancelou e por quê."
-          }
-          confirmar={pedido.acao === "devolver" ? "Devolver" : "Cancelar ordem"}
+          titulo={`${TEXTO_DO_PEDIDO[pedido.acao].titulo} ${pedido.ordem.equipamento}`}
+          explicacao={TEXTO_DO_PEDIDO[pedido.acao].explicacao}
+          confirmar={TEXTO_DO_PEDIDO[pedido.acao].confirmar}
+          rotulo={pedido.acao === "liberar" ? "O que foi resolvido" : "Motivo"}
           perigo={pedido.acao === "cancelar"}
           aoConfirmar={confirmarPedido}
           aoFechar={() => setPedido(null)}

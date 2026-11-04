@@ -30,14 +30,15 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
     final missing = order.items.length - answers.length;
     if (missing > 0) return Phrases.answerMissing(missing);
     final problems = answers.values.where((a) => a.isProblem).length;
-    final blocked = answers.values.where((a) => a.outcome == Outcome.blocked || a.outcome == Outcome.help).length;
+    final blocked = answers.values.where((a) => a.isBlocked).length;
     final parts = [
       'Você respondeu ${answers.length} itens',
       if (problems > 0) '$problems ${problems == 1 ? 'problema' : 'problemas'}',
       if (blocked > 0) '$blocked que não conseguiu',
     ];
-    final back = order.returned ? '${Phrases.returned(order.returnedReason!)} ' : '';
-    return back + Phrases.finish('${parts.join(', ')}. Toque no botão verde, Concluir.');
+    final note = Phrases.orderNote(order);
+    final next = blocked > 0 ? Phrases.waitingManager(blocked) : 'Toque no botão verde, Concluir.';
+    return '${note == null ? '' : '$note '}${Phrases.finish('${parts.join(', ')}. $next')}';
   }
 
   @override
@@ -109,7 +110,10 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
   @override
   Widget build(BuildContext context) {
     final answers = ref.watch(sessionProvider.select((s) => s.answersFor(widget.orderId)));
-    final complete = answers.length == order.items.length;
+    final blocked = answers.values.where((a) => a.isBlocked).length;
+    final missing = order.items.length - answers.length;
+    // Item impedido é verificação pendente: a ordem espera o gestor ou o próprio funcionário resolver.
+    final complete = missing == 0 && blocked == 0;
     final summary = _summary(answers);
 
     return ZeloScaffold(
@@ -118,7 +122,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.undoItemId != null) UndoBanner(orderId: order.id, itemId: widget.undoItemId!),
-          if (order.returned) ...[ReturnedBanner(reason: order.returnedReason!), const SizedBox(height: 8)],
+          if (order.released || order.returned) ...[ReturnedBanner.of(order), const SizedBox(height: 8)],
           Align(alignment: Alignment.centerRight, child: AudioButton(text: summary)),
           const SizedBox(height: 12),
           Expanded(
@@ -142,7 +146,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
         icon: Icons.check_circle,
         color: ZeloColors.ok,
         spokenHelp: Phrases.concludeButton,
-        disabledHint: Phrases.answerMissing(order.items.length - answers.length),
+        disabledHint: missing > 0 ? Phrases.answerMissing(missing) : Phrases.waitingManager(blocked),
         onPressed: complete ? _tryConclude : null,
       ),
     );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FREQUENCIAS } from "@/lib/plano";
-import { hojeNaUnidade, periodoQueContem, periodosDaJanela } from "./schedule";
+import { hojeNaUnidade, periodoQueContem, periodosDaJanela, periodosDoSetor, primeiroPeriodo } from "./schedule";
 
 describe("periodoQueContem", () => {
   it("semana vai de segunda a domingo", () => {
@@ -74,5 +74,86 @@ describe("hojeNaUnidade", () => {
     // 02h UTC de 30/10 ainda é 29/10 em São Paulo (UTC-3).
     expect(hojeNaUnidade(new Date("2026-10-30T02:00:00Z"))).toBe("2026-10-29");
     expect(hojeNaUnidade(new Date("2026-10-30T03:00:00Z"))).toBe("2026-10-30");
+  });
+});
+
+describe("primeiroPeriodo", () => {
+  it("diária começa no próprio dia", () => {
+    expect(primeiroPeriodo("daily", "2026-12-20")).toMatchObject({ period_start: "2026-12-20", period_end: "2026-12-20" });
+  });
+
+  it("início perto do fim empurra mensal e trimestral para o período seguinte", () => {
+    expect(primeiroPeriodo("monthly", "2026-12-20")).toMatchObject({ period_start: "2027-01-01" });
+    expect(primeiroPeriodo("quarterly", "2026-12-20")).toMatchObject({ period_start: "2027-01-01" });
+  });
+
+  it("semestral e anual vencem um ciclo inteiro depois do início", () => {
+    expect(primeiroPeriodo("annual", "2026-11-04")).toMatchObject({ period_start: "2026-11-04", period_end: "2027-11-04" });
+    expect(primeiroPeriodo("semiannual", "2026-11-04")).toMatchObject({ period_start: "2026-11-04", period_end: "2027-05-04" });
+  });
+
+  it("mês mais curto no vencimento cai no último dia", () => {
+    expect(primeiroPeriodo("semiannual", "2026-08-31")).toMatchObject({ period_end: "2027-02-28" });
+    expect(primeiroPeriodo("semiannual", "2027-08-31")).toMatchObject({ period_end: "2028-02-29" });
+    expect(primeiroPeriodo("annual", "2028-02-29")).toMatchObject({ period_end: "2029-02-28" });
+  });
+
+  it("restando pelo menos metade, o período em andamento conta", () => {
+    expect(primeiroPeriodo("monthly", "2026-11-16")).toMatchObject({ period_start: "2026-11-01" }); // 15 de 30 dias
+    expect(primeiroPeriodo("monthly", "2026-11-17")).toMatchObject({ period_start: "2026-12-01" }); // 14 de 30 dias
+    expect(primeiroPeriodo("weekly", "2026-11-05")).toMatchObject({ period_start: "2026-11-02" }); // quinta: 4 de 7
+    expect(primeiroPeriodo("weekly", "2026-11-06")).toMatchObject({ period_start: "2026-11-09" }); // sexta: 3 de 7
+    expect(primeiroPeriodo("quarterly", "2026-11-04")).toMatchObject({ period_start: "2026-10-01", period_end: "2026-12-31" });
+  });
+
+  it("primeiro dia do período sempre conta; fevereiro bissexto no limite", () => {
+    expect(primeiroPeriodo("monthly", "2027-01-01")).toMatchObject({ period_start: "2027-01-01" });
+    expect(primeiroPeriodo("monthly", "2028-02-15")).toMatchObject({ period_start: "2028-02-01" }); // 15 de 29
+    expect(primeiroPeriodo("monthly", "2028-02-16")).toMatchObject({ period_start: "2028-03-01" }); // 14 de 29
+  });
+});
+
+describe("periodosDoSetor", () => {
+  it("nada antes da primeira ocorrência", () => {
+    const p = periodosDoSetor("monthly", "2026-12-20", "2026-12-20");
+    expect(p[0].period_start).toBe("2027-01-01");
+    expect(p.every((x) => x.period_start >= "2027-01-01")).toBe(true);
+  });
+
+  it("início futuro: só o que cabe na janela de 60 dias", () => {
+    expect(periodosDoSetor("daily", "2026-11-04", "2027-06-01")).toEqual([]);
+    const perto = periodosDoSetor("daily", "2026-11-04", "2026-12-01");
+    expect(perto[0].period_start).toBe("2026-12-01");
+    expect(perto.at(-1)?.period_start).toBe("2027-01-03");
+  });
+
+  it("depois do início segue o calendário sem recriar dias perdidos", () => {
+    const p = periodosDoSetor("daily", "2026-11-10", "2026-11-04");
+    expect(p[0].period_start).toBe("2026-11-10");
+    expect(p).toEqual(periodosDaJanela("daily", "2026-11-10"));
+  });
+
+  it("período adiado passa a valer quando chega", () => {
+    expect(periodosDoSetor("monthly", "2027-01-05", "2026-12-20")[0].period_start).toBe("2027-01-01");
+  });
+
+  it("ciclo semestral e anual: emenda sem buraco e mantém o mesmo dia", () => {
+    expect(periodosDoSetor("annual", "2027-11-04", "2026-11-04")[0]).toMatchObject({ period_start: "2026-11-04", period_end: "2027-11-04" });
+    expect(periodosDoSetor("annual", "2027-11-05", "2026-11-04")[0]).toMatchObject({ period_start: "2027-11-05", period_end: "2028-11-04" });
+    expect(periodosDoSetor("semiannual", "2027-06-01", "2026-11-04")[0]).toMatchObject({ period_start: "2027-05-05", period_end: "2027-11-04" });
+  });
+
+  it("ciclo perto de vencer já traz o próximo, dentro da janela", () => {
+    const p = periodosDoSetor("annual", "2027-10-01", "2026-11-04");
+    expect(p.map((x) => x.period_start)).toEqual(["2026-11-04", "2027-11-05"]);
+  });
+
+  it("início futuro: ciclo só aparece quando entra na janela", () => {
+    expect(periodosDoSetor("annual", "2026-11-04", "2027-06-01")).toEqual([]);
+    expect(periodosDoSetor("annual", "2026-11-04", "2026-12-01")).toHaveLength(1);
+  });
+
+  it("gerar duas vezes no mesmo dia dá o mesmo resultado", () => {
+    expect(periodosDoSetor("weekly", "2026-11-04", "2026-11-04")).toEqual(periodosDoSetor("weekly", "2026-11-04", "2026-11-04"));
   });
 });

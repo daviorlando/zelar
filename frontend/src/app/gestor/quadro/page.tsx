@@ -2,9 +2,10 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EsqueletoDeQuadro } from "@/components/zelo/esqueletos";
+import { Notice } from "@/components/zelo/feedback";
 import { PageHeader } from "@/components/zelo/misc";
 import { FREQUENCIAS, ROTULO_FREQUENCIA, type Frequencia } from "@/lib/plano";
-import { nomeLegivel, type CartaoDaOrdem, type SituacaoDaOrdem } from "@/lib/quadro";
+import { MOTIVO, nomeLegivel, type CartaoDaOrdem, type SituacaoDaOrdem } from "@/lib/quadro";
 import { hojeNaUnidade, periodoQueContem, somarDias } from "@/lib/schedule";
 import { setoresComAtividades } from "@/lib/setores";
 import { supabaseForUser } from "@/lib/supabase/server";
@@ -60,7 +61,7 @@ type Linha = {
   status: SituacaoDaOrdem;
   returned_reason: string | null;
   equipment: { tag: string; name: string | null };
-  work_order_item: { result: string | null }[];
+  work_order_item: { result: string | null; block_reason: string | null }[];
 };
 
 async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
@@ -75,7 +76,7 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
   const supabase = await supabaseForUser();
   let consulta = supabase
     .from("work_order")
-    .select("id, sector_code, frequency, due_date, status, returned_reason, equipment:equipment_id (tag, name), work_order_item (result)")
+    .select("id, sector_code, frequency, due_date, status, returned_reason, equipment:equipment_id (tag, name), work_order_item (result, block_reason)")
     .lte("period_start", hoje)
     .neq("status", "cancelled")
     // Concluídas: só as validadas na última semana.
@@ -86,7 +87,11 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
   if (limite) consulta = consulta.or(`due_date.lte.${limite},status.neq.open`);
   if (f.setor) consulta = consulta.eq("sector_code", f.setor);
   if (f.freq) consulta = consulta.eq("frequency", f.freq);
-  const [{ data, error }, setores] = await Promise.all([consulta, setoresComAtividades()]);
+  const [{ data, error }, setores, iniciados] = await Promise.all([
+    consulta,
+    setoresComAtividades(),
+    supabase.from("sector").select("code", { count: "exact", head: true }).not("start_date", "is", null),
+  ]);
   if (error) return <p className="text-destructive">Não consegui carregar o quadro: {error.message}</p>;
 
   const ordens: CartaoDaOrdem[] = (data as unknown as Linha[]).map((o) => ({
@@ -98,8 +103,12 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
     vencimento: o.due_date,
     situacao: o.status,
     total: o.work_order_item.length,
-    respondidos: o.work_order_item.filter((i) => i.result).length,
+    // Impedido não está feito: igual ao anel do celular.
+    respondidos: o.work_order_item.filter((i) => i.result && i.result !== "blocked").length,
     problemas: o.work_order_item.filter((i) => i.result === "problem").length,
+    impedimentos: o.work_order_item
+      .filter((i) => i.result === "blocked")
+      .map((i) => (i.block_reason ? (MOTIVO[i.block_reason] ?? i.block_reason) : "Sem motivo")),
     devolvida: !!o.returned_reason,
   }));
   const codigos = setores.filter((s) => s.atividades > 0).map((s) => s.code);
@@ -141,6 +150,15 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
         </Filtro>
       </div>
 
+      {iniciados.count === 0 && (
+        <Notice tone="info">
+          Nenhum setor iniciado: o quadro fica vazio até você começar a operação em{" "}
+          <Link href="/gestor/implantacao" className="font-medium underline">
+            Implantação
+          </Link>
+          .
+        </Notice>
+      )}
       <AoVivo />
       <Quadro ordens={ordens} hoje={hoje} consulta={base} />
 

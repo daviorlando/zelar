@@ -36,6 +36,7 @@ type Ordem = {
   finished_at: string | null;
   validated_at: string | null;
   returned_reason: string | null;
+  released_note: string | null;
   cancel_reason: string | null;
   equipment: { tag: string; name: string | null };
   work_order_item: Item[];
@@ -53,7 +54,7 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
   const { data: ordem } = await supabase
     .from("work_order")
     .select(
-      `id, status, frequency, sector_code, period_start, period_end, due_date, finished_at, validated_at, returned_reason, cancel_reason,
+      `id, status, frequency, sector_code, period_start, period_end, due_date, finished_at, validated_at, returned_reason, released_note, cancel_reason,
        equipment:equipment_id (tag, name),
        work_order_item (id, result, measured_value, block_reason, device_time,
          worker:executed_by (name),
@@ -71,7 +72,9 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
     );
   }
 
-  const itens = [...ordem.work_order_item].sort((a, b) => a.plan_item.source_row - b.plan_item.source_row);
+  // Impedidos primeiro: é por eles que o gestor abriu a ordem.
+  const impedido = (i: Item) => (i.result === "blocked" ? 0 : 1);
+  const itens = [...ordem.work_order_item].sort((a, b) => impedido(a) - impedido(b) || a.plan_item.source_row - b.plan_item.source_row);
   const caminhos = itens.flatMap((i) => i.evidence.map((e) => e.storage_path));
   const assinadas = caminhos.length ? (await supabase.storage.from("evidence").createSignedUrls(caminhos, 3600)).data ?? [] : [];
   const url = new Map(assinadas.flatMap((s) => (s.path && s.signedUrl ? [[s.path, s.signedUrl] as const] : [])));
@@ -128,6 +131,9 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
           <p className="rounded-sm border border-warning bg-warning-soft px-3 py-2 text-sm text-warning">
             Devolvida: {ordem.returned_reason}
           </p>
+        )}
+        {ordem.released_note && (
+          <p className="rounded-sm border border-info bg-info-soft px-3 py-2 text-sm text-info">Liberada: {ordem.released_note}</p>
         )}
         {ordem.cancel_reason && (
           <p className="rounded-sm border border-destructive bg-destructive-soft px-3 py-2 text-sm text-destructive">

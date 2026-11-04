@@ -55,11 +55,15 @@ class BigActionButton extends ConsumerWidget {
           style: FilledButton.styleFrom(
             backgroundColor: color,
             foregroundColor: foreground,
+            // A cor continua dizendo qual é o botão; mais clara, diz que ainda não dá para usar.
+            disabledBackgroundColor: color.withValues(alpha: 0.35),
+            disabledForegroundColor: foreground,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 20),
           ),
           onPressed: onPressed,
-          onLongPress: () => speaker.say(spokenHelp ?? label),
+          // Com onLongPress o botão conta como ativo e engole o toque: desativado, quem ouve é o detector abaixo.
+          onLongPress: onPressed == null && hint != null ? null : () => speaker.say(spokenHelp ?? label),
           child: Row(
             children: [
               Icon(icon, size: compact ? 36 : 52),
@@ -209,17 +213,24 @@ class EquipmentPicture extends StatelessWidget {
 }
 
 /// Estrutura comum: botão de início à esquerda, estado de sincronização à direita.
-/// Aviso de ordem devolvida: o que o gestor pediu, por escrito e na voz (segure ou toque).
+/// Aviso do gestor na ordem (devolvida ou liberada), por escrito e na voz (toque para ouvir).
 class ReturnedBanner extends ConsumerWidget {
-  const ReturnedBanner({super.key, required this.reason});
+  const ReturnedBanner({super.key, required this.reason, this.released = false});
+
+  /// A ordem da liberação vem antes da devolução: é o aviso mais recente.
+  factory ReturnedBanner.of(WorkOrder order) =>
+      order.released ? ReturnedBanner(reason: order.releasedNote!, released: true) : ReturnedBanner(reason: order.returnedReason!);
 
   final String reason;
+  final bool released;
+
+  String get _spoken => released ? Phrases.released(reason) : Phrases.returned(reason);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Semantics(
       button: true,
-      label: Phrases.returned(reason),
+      label: _spoken,
       excludeSemantics: true,
       child: Material(
         key: const Key('returned-banner'),
@@ -227,18 +238,18 @@ class ReturnedBanner extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => ref.read(speakerProvider).say(Phrases.returned(reason)),
+          onTap: () => ref.read(speakerProvider).say(_spoken),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                const Icon(Icons.undo, color: Colors.white, size: 40),
+                Icon(released ? Icons.lock_open : Icons.undo, color: Colors.white, size: 40),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Devolvido pelo gestor', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      Text(released ? 'Liberado pelo gestor' : 'Devolvido pelo gestor', style: const TextStyle(color: Colors.white, fontSize: 16)),
                       Text(
                         reason,
                         maxLines: 3,

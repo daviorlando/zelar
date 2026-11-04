@@ -51,7 +51,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
         );
     final secs = DateTime.now().difference(_openedAt).inSeconds;
     ref.read(eventLogProvider.notifier).add('resposta', '${item.id}: ${outcome.name}${value != null ? ' $value' : ''} em ${secs}s, $_replays repetições do áudio');
-    OrderFlow.goNext(context, order, widget.index);
+    OrderFlow.goNext(context, order, widget.index, ref.read(sessionProvider).answersFor(order.id));
   }
 
   void _goReason(String kind) {

@@ -1,4 +1,5 @@
-// Calendário das ordens (escopo v0.5, seção 7): calendário fixo, no fuso da unidade.
+// Calendário das ordens (escopo v0.5, seção 7), no fuso da unidade: calendário fixo até o
+// trimestre; semestral e anual contam a partir do início do setor (ver MESES_DO_CICLO).
 // Função pura e determinística: recebe "hoje" e devolve os períodos da janela.
 // Quem grava é a função gerar_ordens do banco, com upsert pela chave estável.
 
@@ -63,6 +64,69 @@ export function periodosDaJanela(frequency: Frequencia, hoje: Dia, dias = JANELA
   const fim = somarDias(hoje, dias);
   const out: Periodo[] = [];
   let p = periodoQueContem(frequency, hoje);
+  while (p.period_start <= fim) {
+    out.push(p);
+    p = periodoQueContem(frequency, somarDias(p.period_end, 1));
+  }
+  return out;
+}
+
+const diasEntre = (de: Dia, ate: Dia) => Math.round((paraData(ate).getTime() - paraData(de).getTime()) / 86_400_000) + 1;
+
+/** Mesmo dia, n meses depois. Se o mês for mais curto, cai no último dia dele (31/08 + 6 = 28/02). */
+function somarMeses(d: Dia, n: number): Dia {
+  const x = paraData(d);
+  const total = x.getUTCMonth() + n;
+  const ultimo = Number(fimDoMes(x.getUTCFullYear(), total).slice(8));
+  return dia(x.getUTCFullYear(), total, Math.min(x.getUTCDate(), ultimo));
+}
+
+/**
+ * Semestral e anual contam a partir do início do setor, não do calendário: começando em
+ * 04/11/2026, a anual vence em 04/11/2027 e a semestral em 04/05/2027. No calendário,
+ * elas venceriam junto logo depois do início ou só 14 meses depois.
+ */
+const MESES_DO_CICLO: Partial<Record<Frequencia, number>> = { semiannual: 6, annual: 12 };
+
+function cicloDoSetor(frequency: Frequencia, inicio: Dia, meses: number, n: number): Periodo {
+  return {
+    frequency,
+    period_start: n === 0 ? inicio : somarDias(somarMeses(inicio, meses * n), 1),
+    period_end: somarMeses(inicio, meses * (n + 1)),
+  };
+}
+
+/**
+ * A primeira ocorrência de um setor que começa em `inicio`. Nas frequências de calendário,
+ * começar no meio de um período só conta se restar pelo menos metade dele: sem isso,
+ * um início em 20/12 faria mensal e trimestral vencerem em 31/12, com poucos dias de prazo.
+ */
+export function primeiroPeriodo(frequency: Frequencia, inicio: Dia): Periodo {
+  const meses = MESES_DO_CICLO[frequency];
+  if (meses) return cicloDoSetor(frequency, inicio, meses, 0);
+  const p = periodoQueContem(frequency, inicio);
+  if (frequency === "daily") return p;
+  const metadeOuMais = diasEntre(inicio, p.period_end) * 2 >= diasEntre(p.period_start, p.period_end);
+  return metadeOuMais ? p : periodoQueContem(frequency, somarDias(p.period_end, 1));
+}
+
+/**
+ * Períodos de um setor iniciado em `inicio`, do que está em curso até o fim da janela,
+ * sem nada antes da primeira ocorrência. Dias perdidos entre o início e hoje não são recriados.
+ */
+export function periodosDoSetor(frequency: Frequencia, hoje: Dia, inicio: Dia, dias = JANELA_DIAS): Periodo[] {
+  const fim = somarDias(hoje, dias);
+  const out: Periodo[] = [];
+  const meses = MESES_DO_CICLO[frequency];
+  if (meses) {
+    let n = 0;
+    while (cicloDoSetor(frequency, inicio, meses, n).period_end < hoje) n++;
+    for (let p = cicloDoSetor(frequency, inicio, meses, n); p.period_start <= fim; p = cicloDoSetor(frequency, inicio, meses, ++n)) out.push(p);
+    return out;
+  }
+  const primeiro = primeiroPeriodo(frequency, inicio);
+  const atual = periodoQueContem(frequency, hoje);
+  let p = primeiro.period_start > atual.period_start ? primeiro : atual;
   while (p.period_start <= fim) {
     out.push(p);
     p = periodoQueContem(frequency, somarDias(p.period_end, 1));

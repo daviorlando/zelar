@@ -133,7 +133,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
           ),
         );
     ref.read(eventLogProvider.notifier).add('resposta', '${item.id}: ${outcome.name} ($_reason)');
-    OrderFlow.goNext(context, order, widget.index);
+    OrderFlow.goNext(context, order, widget.index, ref.read(sessionProvider).answersFor(order.id));
   }
 
   @override

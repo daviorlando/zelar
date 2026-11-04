@@ -4,11 +4,12 @@ import { useState } from "react";
 import { Button } from "@/components/zelo/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-/** Pede o motivo antes de devolver ou cancelar. O motivo vai para o celular e para a auditoria. */
+/** Pede um texto antes de devolver, cancelar ou liberar. Ele vai para o celular e para a auditoria. */
 export function PedirMotivo({
   titulo,
   explicacao,
   confirmar,
+  rotulo = "Motivo",
   perigo,
   aoConfirmar,
   aoFechar,
@@ -16,6 +17,7 @@ export function PedirMotivo({
   titulo: string;
   explicacao: string;
   confirmar: string;
+  rotulo?: string;
   perigo?: boolean;
   aoConfirmar: (motivo: string) => Promise<string | undefined>;
   aoFechar: () => void;
@@ -47,7 +49,8 @@ export function PedirMotivo({
             onChange={(e) => setMotivo(e.target.value)}
             rows={3}
             maxLength={500}
-            placeholder="Motivo"
+            placeholder={rotulo}
+            aria-label={rotulo}
             className="w-full rounded-sm border border-input bg-card px-2.5 py-2 text-md text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/40 focus:outline-none"
           />
           {erro && (

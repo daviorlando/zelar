@@ -1,6 +1,6 @@
 "use client";
 
-import { Cog, LayoutGrid, LogOut, Moon, Sun, Users } from "lucide-react";
+import { Cog, LayoutGrid, LogOut, Moon, Rocket, ShieldCheck, Sun, Users } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 
 import {
@@ -24,8 +24,10 @@ const GRUPOS: GrupoDeNavegacao[] = [
     id: "configuracao",
     label: "Configuração",
     itens: [
+      { href: "/gestor/implantacao", label: "Implantação", icon: Rocket },
       { href: "/gestor/funcionarios", label: "Funcionários", icon: Users },
       { href: "/gestor/equipamentos", label: "Equipamentos", icon: Cog },
+      { href: "/gestor/gestores", label: "Gestores", icon: ShieldCheck },
     ],
   },
 ];
