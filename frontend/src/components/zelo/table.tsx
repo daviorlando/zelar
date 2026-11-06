@@ -27,8 +27,11 @@ export function Table({ children, rotulo }: { children: ReactNode; rotulo: strin
        *
        * Mora aqui, e não em cada grade, porque é a tabela que fica dentro
        * delas: uma linha resolve todas, inclusive as que ainda não existem.
+       *
+       * `relative` segura o `sr-only` dos cabeçalhos: ele é absoluto e, sem um
+       * ancestral posicionado, escapa do `overflow` e alarga o documento.
        */
-      className="min-w-0 -mx-[1.125rem] overflow-x-auto px-[1.125rem]"
+      className="relative min-w-0 -mx-[1.125rem] overflow-x-auto px-[1.125rem]"
     >
       <table className="w-full border-collapse text-md">{children}</table>
     </div>
