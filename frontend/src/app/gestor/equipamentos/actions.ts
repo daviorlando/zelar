@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { aplicarMudancasNoPlano } from "@/lib/gerar";
-import { FREQUENCIAS, TIPOS_DE_ITEM, normalizarTag, type Frequencia, type TipoDeItem } from "@/lib/plano";
+import { FOTO_DE_MAQUINA, FREQUENCIAS, TIPOS_DE_ITEM, normalizarTag, type Frequencia, type TipoDeItem } from "@/lib/plano";
 import { supabaseForUser } from "@/lib/supabase/server";
 
 /** Resultado das ações de cadastro: o formulário mostra o erro ou fecha. */
@@ -27,6 +27,7 @@ function numero(form: FormData, campo: string): number | null | undefined {
 }
 
 /** Códigos do Postgres que viram mensagem para o gestor. */
+const MAX_FOTO = 4 * 1024 * 1024;
 const JA_EXISTE = "23505";
 const EM_USO = "23503";
 
@@ -192,6 +193,37 @@ async function apagarAtividadesSemHistorico(supabase: Cliente, equipamentos: str
   const comHistorico = new Set((usados ?? []).map((u) => u.plan_item_id));
   const livres = todos.filter((i) => !comHistorico.has(i));
   if (livres.length) await supabase.from("plan_item").delete().in("id", livres);
+}
+
+/** Caminho novo a cada troca: o celular percebe a mudança e baixa a foto de novo. */
+export async function salvarFotoDaMaquina(id: string, form: FormData): Promise<Resultado> {
+  const foto = form.get("foto");
+  if (!(foto instanceof File) || foto.size === 0) return { erro: "Escolha uma foto." };
+  if (!foto.type.startsWith("image/")) return { erro: "O arquivo precisa ser uma imagem." };
+  if (foto.size > MAX_FOTO) return { erro: "Foto grande demais (máximo 4 MB)." };
+
+  const { supabase } = await quemAltera();
+  const { data: antes } = await supabase.from("equipment").select("photo_path").eq("id", id).single();
+  if (!antes) return { erro: "Equipamento não encontrado." };
+  const caminho = `${id}/${Date.now()}.jpg`;
+  const envio = await supabase.storage.from(FOTO_DE_MAQUINA).upload(caminho, foto, { contentType: "image/jpeg" });
+  if (envio.error) return { erro: `Não foi possível enviar: ${envio.error.message}` };
+  const { error } = await supabase.from("equipment").update({ photo_path: caminho, edited_at: new Date().toISOString() }).eq("id", id);
+  if (error) return { erro: `Não foi possível salvar: ${error.message}` };
+  if (antes.photo_path) await supabase.storage.from(FOTO_DE_MAQUINA).remove([antes.photo_path]);
+  revalidatePath(`/gestor/equipamentos/${id}`);
+  return { ok: "Foto salva." };
+}
+
+export async function removerFotoDaMaquina(id: string): Promise<Resultado> {
+  const { supabase } = await quemAltera();
+  const { data: antes } = await supabase.from("equipment").select("photo_path").eq("id", id).single();
+  if (!antes) return { erro: "Equipamento não encontrado." };
+  const { error } = await supabase.from("equipment").update({ photo_path: null, edited_at: new Date().toISOString() }).eq("id", id);
+  if (error) return { erro: `Não foi possível remover: ${error.message}` };
+  if (antes.photo_path) await supabase.storage.from(FOTO_DE_MAQUINA).remove([antes.photo_path]);
+  revalidatePath(`/gestor/equipamentos/${id}`);
+  return { ok: "Foto removida." };
 }
 
 /* ── Atividades ──────────────────────────────────────────────────────── */

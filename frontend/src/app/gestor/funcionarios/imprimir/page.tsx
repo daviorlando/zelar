@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Card } from "@/components/zelo/card";
 import { PageHeader } from "@/components/zelo/misc";
+import { perfilAtual } from "@/lib/empresa";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { badgeQrText, PHOTO_BUCKET, type Worker } from "@/lib/workers";
 import { PrintButton } from "./PrintButton";
@@ -35,6 +36,7 @@ async function Badges({ searchParams }: PageProps<"/gestor/funcionarios/imprimir
   const ids = (Array.isArray(raw) ? raw : raw ? [raw] : []).flatMap((v) => v.split(","));
   if (ids.length === 0) return <Card>Nenhum funcionário marcado. Volte e marque quem vai receber crachá.</Card>;
 
+  const empresa = (await perfilAtual())?.empresa ?? "";
   const supabase = await supabaseForUser();
   const { data, error } = await supabase
     .from("worker")
@@ -69,7 +71,7 @@ async function Badges({ searchParams }: PageProps<"/gestor/funcionarios/imprimir
             )}
           </div>
           <div className="badge-body">
-            <p className="badge-brand">Zelo · Eco Gesso</p>
+            <p className="badge-brand">Zelo · {empresa}</p>
             <p className="badge-name">{w.name}</p>
             <p className="badge-meta">Crachá de entrada nº {w.badge_version}</p>
           </div>

@@ -9,7 +9,8 @@ import { TabelaEsqueleto } from "@/components/zelo/esqueletos";
 import { Notice } from "@/components/zelo/feedback";
 import { PageHeader } from "@/components/zelo/misc";
 import { Table, TD, TH, TR } from "@/components/zelo/table";
-import { supabaseAdmin, supabaseForUser } from "@/lib/supabase/server";
+import { exigirGestor } from "@/lib/empresa";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import { AcoesDoGestor, NovoGestor } from "./formularios";
 
 export const metadata = { title: "Gestores" };
@@ -37,20 +38,27 @@ const quando = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle:
 
 async function Lista() {
   await connection();
-  const supabase = await supabaseForUser();
-  const { data: sessao } = await supabase.auth.getClaims();
-  const { data, error } = await supabaseAdmin().auth.admin.listUsers({ perPage: 200 });
+  const eu = await exigirGestor();
+  if (!eu) return null;
+  // A lista de contas do Auth é de todas as empresas: o perfil diz quais são desta.
+  const admin = supabaseAdmin();
+  const [{ data, error }, perfis] = await Promise.all([
+    admin.auth.admin.listUsers({ perPage: 1000 }),
+    admin.from("app_user").select("user_id").eq("company_id", eu.empresaId),
+  ]);
   if (error) return <Notice tone="error">Não consegui carregar: {error.message}</Notice>;
+  const daEmpresa = new Set((perfis.data ?? []).map((p) => p.user_id));
   const agora = new Date();
   const gestores = data.users
+    .filter((u) => daEmpresa.has(u.id))
     .map((u) => ({
       id: u.id,
       email: u.email ?? "",
       nome: (u.user_metadata?.nome as string | undefined) ?? "",
-      temporaria: !!u.user_metadata?.trocar_senha,
+      temporaria: !!u.app_metadata?.trocar_senha,
       ultimoAcesso: u.last_sign_in_at,
       ativo: !u.banned_until || new Date(u.banned_until) <= agora,
-      eu: u.id === sessao?.claims?.sub,
+      eu: u.id === eu.id,
     }))
     .sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.email.localeCompare(b.email));
 
@@ -87,7 +95,7 @@ async function Lista() {
               <TD>{g.email}</TD>
               <TD>{g.ultimoAcesso ? quando.format(new Date(g.ultimoAcesso)) : "nunca entrou"}</TD>
               <TD>
-                {!g.ativo ? <Badge tone="danger">Desativado</Badge> : g.temporaria ? <Badge tone="warn">Senha temporária</Badge> : <Badge tone="ok">Ativo</Badge>}
+                {!g.ativo ? <Badge tone="danger">Desativado</Badge> : g.temporaria ? <Badge tone="warn">Falta criar a senha</Badge> : <Badge tone="ok">Ativo</Badge>}
               </TD>
               <TD>{!g.eu && <AcoesDoGestor id={g.id} email={g.email} ativo={g.ativo} />}</TD>
             </TR>

@@ -18,7 +18,7 @@ const codecLight = localFont({ src: "./fonts/CodecPro-Light.woff2", variable: "-
 
 export const metadata: Metadata = {
   title: { default: "Zelo", template: "%s · Zelo" },
-  description: "Painel do gestor de manutenção da Eco Gesso",
+  description: "Painel do gestor de manutenção",
   robots: { index: false, follow: false },
 };
 

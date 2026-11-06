@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/zelo/button";
+import { ConfirmDialog } from "@/components/zelo/confirmacao";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cancelar, devolver, liberar, validar } from "./actions";
 import { PedirMotivo } from "./motivo";
@@ -37,12 +38,20 @@ export function PainelLateral({ titulo, voltar, children }: { titulo: string; vo
 }
 
 /** Validar, devolver, liberar e cancelar, conforme a situação da ordem. */
-export function AcoesDoDetalhe({ id, nome, situacao }: { id: string; nome: string; situacao: string }) {
+export function AcoesDoDetalhe({ id, nome, situacao, pulados = 0 }: { id: string; nome: string; situacao: string; pulados?: number }) {
+  const [confirmando, setConfirmando] = useState(false);
   const [pedido, setPedido] = useState<"devolver" | "cancelar" | "liberar" | null>(null);
   const [validando, iniciar] = useTransition();
   if (situacao === "cancelled") return null;
   const podeValidar = situacao === "awaiting_validation";
   const podeDevolver = situacao === "awaiting_validation" || situacao === "done";
+  const validarAgora = () =>
+    iniciar(async () => {
+      const r = await validar(id, pulados > 0);
+      setConfirmando(false);
+      if (r.erro) toast.error(r.erro);
+      else toast.success(`${nome}: validada.`);
+    });
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -55,17 +64,21 @@ export function AcoesDoDetalhe({ id, nome, situacao }: { id: string; nome: strin
         <Button
           variant="primary"
           disabled={validando}
-          onClick={() =>
-            iniciar(async () => {
-              const r = await validar(id);
-              if (r.erro) toast.error(r.erro);
-              else toast.success(`${nome}: validada.`);
-            })
-          }
+          onClick={() => (pulados > 0 ? setConfirmando(true) : validarAgora())}
         >
           {validando ? "Validando…" : "Validar"}
         </Button>
       )}
+      <ConfirmDialog
+        aberto={confirmando}
+        aoMudar={setConfirmando}
+        titulo={`Validar com ${pulados} sem resposta?`}
+        confirmar="Validar assim mesmo"
+        ocupado={validando}
+        aoConfirmar={validarAgora}
+      >
+        O funcionário não soube responder {pulados === 1 ? "1 item" : `${pulados} itens`}. Eles não contam como feitos, e a validação fica registrada com essa contagem.
+      </ConfirmDialog>
       {podeDevolver && <Button onClick={() => setPedido("devolver")}>Devolver ao funcionário</Button>}
       <Button variant="ghost" className="ml-auto text-destructive" onClick={() => setPedido("cancelar")}>
         Cancelar ordem

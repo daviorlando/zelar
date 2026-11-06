@@ -22,12 +22,16 @@ async function registrar(
   action: "validar" | "devolver" | "cancelar",
   id: string,
   reason?: string,
+  details?: Record<string, unknown>,
 ) {
-  await supabase.from("audit_log").insert({ actor, action, work_order_id: id, reason: reason ?? null });
+  await supabase.from("audit_log").insert({ actor, action, work_order_id: id, reason: reason ?? null, details: details ?? null });
 }
 
-/** O gestor conferiu as respostas: a ordem está concluída. */
-export async function validar(id: string): Promise<Resultado> {
+/**
+ * O gestor conferiu as respostas: a ordem está concluída. Item que o funcionário não soube
+ * responder não impede, mas precisa do aceite do gestor e fica contado na auditoria.
+ */
+export async function validar(id: string, aceitaPulados = false): Promise<Resultado> {
   const { supabase, id: quem } = await gestor();
   // "Não consegui" é verificação pendente: não pode virar Concluída.
   const { count } = await supabase
@@ -36,6 +40,12 @@ export async function validar(id: string): Promise<Resultado> {
     .eq("work_order_id", id)
     .eq("result", "blocked");
   if (count) return { erro: "Esta ordem tem item impedido. Devolva ao funcionário e libere o item." };
+  const { count: pulados } = await supabase
+    .from("work_order_item")
+    .select("id", { count: "exact", head: true })
+    .eq("work_order_id", id)
+    .eq("result", "skipped");
+  if (pulados && !aceitaPulados) return { erro: `Esta ordem tem ${pulados} sem resposta. Abra a ordem e confirme.` };
   const { data, error } = await supabase
     .from("work_order")
     .update({ status: "done", validated_at: new Date().toISOString(), validated_by: quem })
@@ -44,7 +54,7 @@ export async function validar(id: string): Promise<Resultado> {
     .select("id");
   if (error) return { erro: error.message };
   if (!data?.length) return { erro: "Só dá para validar o que está aguardando validação." };
-  await registrar(supabase, quem, "validar", id);
+  await registrar(supabase, quem, "validar", id, undefined, pulados ? { pulados } : undefined);
   revalidatePath("/gestor/quadro");
   return {};
 }

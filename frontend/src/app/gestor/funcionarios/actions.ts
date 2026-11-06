@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { PIN_LENGTH, FIGURES } from "@/lib/figures";
+import { PIN_LENGTH } from "@/lib/pin";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { newBadgeToken, PHOTO_BUCKET } from "@/lib/workers";
 
@@ -11,12 +11,8 @@ export type SaveState = { error?: string };
 const MAX_PHOTO = 4 * 1024 * 1024;
 
 function parsePin(raw: FormDataEntryValue | null): number[] | null {
-  const pin = String(raw ?? "")
-    .split(",")
-    .filter(Boolean)
-    .map(Number);
-  const valid = pin.length === PIN_LENGTH && pin.every((n) => Number.isInteger(n) && n >= 0 && n < FIGURES.length);
-  return valid ? pin : null;
+  const texto = String(raw ?? "");
+  return new RegExp(`^\\d{${PIN_LENGTH}}$`).test(texto) ? [...texto].map(Number) : null;
 }
 
 export async function saveWorker(_: SaveState, formData: FormData): Promise<SaveState> {
@@ -27,7 +23,7 @@ export async function saveWorker(_: SaveState, formData: FormData): Promise<Save
   const setores = [...new Set(formData.getAll("setores").map(String))].filter((c) => /^[A-Z]$/.test(c));
 
   if (!name) return { error: "Informe o nome." };
-  if (!pin) return { error: `Escolha ${PIN_LENGTH} figuras.` };
+  if (!pin) return { error: `O PIN tem ${PIN_LENGTH} números.` };
   const hasPhoto = photo instanceof File && photo.size > 0;
   if (hasPhoto && !photo.type.startsWith("image/")) return { error: "A foto precisa ser uma imagem." };
   if (hasPhoto && photo.size > MAX_PHOTO) return { error: "Foto grande demais (máximo 4 MB)." };

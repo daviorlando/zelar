@@ -1,13 +1,13 @@
 "use client";
 
 import { startTransition, useActionState, useState } from "react";
-import { Camera, Eraser } from "lucide-react";
+import { Camera } from "lucide-react";
 import { Button } from "@/components/zelo/button";
 import { Card } from "@/components/zelo/card";
 import { Caixa } from "@/components/zelo/checkbox";
 import { Notice } from "@/components/zelo/feedback";
 import { Field, Input } from "@/components/zelo/input";
-import { FIGURES, PIN_LENGTH } from "@/lib/figures";
+import { PIN_LENGTH } from "@/lib/pin";
 import type { OpcaoDeSetor } from "@/lib/setores";
 import { saveWorker, type SaveState } from "./actions";
 
@@ -20,7 +20,7 @@ type Props = {
 
 export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) {
   const [state, action, pending] = useActionState<SaveState, FormData>(saveWorker, {});
-  const [pin, setPin] = useState<number[]>(worker?.pin ?? []);
+  const [pin, setPin] = useState(worker?.pin.join("") ?? "");
   const [preview, setPreview] = useState<string | null>(photoUrl ?? null);
   const [meusSetores, setMeusSetores] = useState<string[]>(marcados);
 
@@ -33,7 +33,6 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
         startTransition(() => action(dados));
       }} className="grid items-start gap-4 lg:grid-cols-[260px_1fr]">
       {worker && <input type="hidden" name="id" value={worker.id} />}
-      <input type="hidden" name="pin" value={pin.join(",")} />
       {meusSetores.map((s) => (
         <input key={s} type="hidden" name="setores" value={s} />
       ))}
@@ -104,40 +103,27 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
         </Card>
 
         <Card
-          title="Figuras de entrada"
-          note={`Escolha com o funcionário ${PIN_LENGTH} figuras, na ordem. Ele usa quando estiver sem o crachá. Elas não aparecem no crachá impresso.`}
+          title="PIN de entrada"
+          note={`${PIN_LENGTH} números, combinados com o funcionário. Ele usa quando estiver sem o crachá. O PIN não aparece no crachá impresso.`}
         >
-          <fieldset className="flex flex-col gap-4">
-            <legend className="sr-only">Figuras de entrada</legend>
-            <div className="flex flex-wrap items-center gap-2" aria-live="polite">
-              {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                <span
-                  key={i}
-                  className="grid size-14 place-items-center rounded-md border-2 border-dashed border-border-strong text-3xl"
-                  title={pin[i] !== undefined ? FIGURES[pin[i]].name : "vazio"}
-                >
-                  {pin[i] !== undefined ? FIGURES[pin[i]].emoji : ""}
-                </span>
-              ))}
-              <Button type="button" variant="ghost" onClick={() => setPin([])} disabled={pin.length === 0}>
-                <Eraser className="size-4" aria-hidden /> Limpar
-              </Button>
-            </div>
-            <div className="grid max-w-sm grid-cols-3 gap-2">
-              {FIGURES.map((f, i) => (
-                <button
-                  key={f.name}
-                  type="button"
-                  className="vidro-cartao flex flex-col items-center gap-1 rounded-md border py-2.5 text-3xl transition hover:border-brand-border disabled:opacity-40"
-                  disabled={pin.length >= PIN_LENGTH}
-                  onClick={() => setPin((p) => [...p, i])}
-                >
-                  {f.emoji}
-                  <span className="text-xs text-muted-foreground">{f.name}</span>
-                </button>
-              ))}
-            </div>
-          </fieldset>
+          <Field label="PIN" htmlFor="pin">
+            <Input
+              id="pin"
+              name="pin"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, PIN_LENGTH))}
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              className="num max-w-40 text-center text-2xl tracking-[0.4em]"
+              aria-describedby={pin.length === PIN_LENGTH ? undefined : "pin-ajuda"}
+            />
+          </Field>
+          {pin.length !== PIN_LENGTH && (
+            <p id="pin-ajuda" className="mt-2 text-xs text-muted-foreground">
+              Faltam {PIN_LENGTH - pin.length} {PIN_LENGTH - pin.length === 1 ? "número" : "números"}.
+            </p>
+          )}
         </Card>
 
         {state.error && <Notice tone="error">{state.error}</Notice>}

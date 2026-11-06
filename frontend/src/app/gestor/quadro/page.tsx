@@ -103,8 +103,9 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
     vencimento: o.due_date,
     situacao: o.status,
     total: o.work_order_item.length,
-    // Impedido não está feito: igual ao anel do celular.
-    respondidos: o.work_order_item.filter((i) => i.result && i.result !== "blocked").length,
+    // Impedido e pulado não estão feitos: igual ao anel do celular.
+    respondidos: o.work_order_item.filter((i) => i.result && i.result !== "blocked" && i.result !== "skipped").length,
+    pulados: o.work_order_item.filter((i) => i.result === "skipped").length,
     // Medição fora da faixa também é problema, como no celular.
     problemas: o.work_order_item.filter((i) => i.result === "problem" || i.block_reason === "out_of_range").length,
     impedimentos: o.work_order_item

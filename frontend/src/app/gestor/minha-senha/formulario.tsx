@@ -7,15 +7,15 @@ import { Button } from "@/components/zelo/button";
 import { Field, Input } from "@/components/zelo/input";
 import { trocarMinhaSenha, type Resultado } from "../gestores/actions";
 
-export function FormularioDeSenha() {
+export function FormularioDeSenha({ depois = "/gestor/quadro" }: { depois?: string }) {
   const router = useRouter();
   const [estado, enviar, ocupado] = useActionState<Resultado, FormData>(trocarMinhaSenha, {});
 
   useEffect(() => {
     if (!estado.ok) return;
     toast.success(estado.ok);
-    router.push("/gestor/quadro");
-  }, [estado, router]);
+    router.push(depois);
+  }, [estado, router, depois]);
 
   return (
     <form action={enviar} className="flex flex-col gap-4">

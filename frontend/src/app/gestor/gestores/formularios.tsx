@@ -75,17 +75,20 @@ export function NovoGestor() {
               onSubmit={(e) => {
                 e.preventDefault();
                 const dados = new FormData(e.currentTarget);
+                const botao = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+                dados.set("modo", botao?.value ?? "convite");
                 iniciar(async () => {
                   const r = await criarGestor(dados);
                   if (r.erro) return setErro(r.erro);
                   setAberto(false);
-                  setGerada({ email: String(dados.get("email")).trim().toLowerCase(), senha: r.senha! });
+                  if (r.senha) setGerada({ email: String(dados.get("email")).trim().toLowerCase(), senha: r.senha });
+                  else toast.success(r.ok);
                 });
               }}
             >
               <DialogHeader>
                 <DialogTitle>Novo gestor</DialogTitle>
-                <DialogDescription>O painel gera uma senha temporária para você passar à pessoa.</DialogDescription>
+                <DialogDescription>A pessoa recebe um e-mail para criar a senha. Se o e-mail não chegar, use a senha temporária.</DialogDescription>
               </DialogHeader>
               <Field label="Nome" htmlFor="gestor-nome">
                 <Input id="gestor-nome" name="nome" required maxLength={120} autoFocus />
@@ -102,8 +105,11 @@ export function NovoGestor() {
                 <Button type="button" variant="ghost" onClick={() => setAberto(false)}>
                   Voltar
                 </Button>
-                <Button variant="primary" disabled={ocupado}>
-                  {ocupado ? "Criando…" : "Criar gestor"}
+                <Button variant="ghost" name="modo" value="senha" disabled={ocupado}>
+                  Usar senha temporária
+                </Button>
+                <Button variant="primary" name="modo" value="convite" disabled={ocupado}>
+                  {ocupado ? "Enviando…" : "Enviar convite"}
                 </Button>
               </DialogFooter>
             </form>

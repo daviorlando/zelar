@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { ehUuid, recusarAparelho } from "@/lib/aparelho";
+import { autenticarAparelho, ehUuid, funcionarioDaEmpresa } from "@/lib/aparelho";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 /** Abaixo dos 4,5 MB que a Vercel aceita no corpo do pedido. */
@@ -15,8 +15,8 @@ const TIPOS = {
  * o SHA-256 do arquivo: reenviar o mesmo arquivo não cria cópia.
  */
 export async function POST(request: Request) {
-  const recusa = recusarAparelho(request);
-  if (recusa) return recusa;
+  const aparelho = await autenticarAparelho(request);
+  if (aparelho instanceof Response) return aparelho;
 
   let form: FormData;
   try {
@@ -33,12 +33,14 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || file.size === 0) return Response.json({ error: "arquivo ausente" }, { status: 400 });
   if (file.size > MAX_BYTES) return Response.json({ error: "arquivo maior que 4 MB" }, { status: 413 });
 
+  if (!(await funcionarioDaEmpresa(workerId, aparelho.companyId))) return Response.json({ error: "funcionário inválido" }, { status: 403 });
   const supabase = supabaseAdmin();
   // O item precisa ser de uma ordem do setor do funcionário (ou atribuída a ele).
   const { data: item } = await supabase
     .from("work_order_item")
     .select("id, work_order:work_order_id (sector_code, assigned_worker_id)")
     .eq("id", itemId)
+    .eq("company_id", aparelho.companyId)
     .maybeSingle<{ id: string; work_order: { sector_code: string; assigned_worker_id: string | null } }>();
   if (!item) return Response.json({ error: "item não encontrado" }, { status: 404 });
   const { data: setores } = await supabase.from("worker_sector").select("sector_code").eq("worker_id", workerId);

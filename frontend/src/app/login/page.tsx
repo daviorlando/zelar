@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { Logo } from "@/components/zelo/logo";
 import { LoginForm } from "./LoginForm";
@@ -5,8 +6,17 @@ import { LoginForm } from "./LoginForm";
 export const metadata = { title: "Entrar" };
 
 async function Form({ searchParams }: PageProps<"/login">) {
-  const back = (await searchParams).voltar;
-  return <LoginForm back={typeof back === "string" ? back : ""} />;
+  const { voltar: back, sem_acesso: semAcesso } = await searchParams;
+  return (
+    <>
+      {semAcesso && (
+        <p role="alert" className="mb-4 rounded-sm border border-warning bg-warning-soft px-3 py-2 text-sm text-warning">
+          Esta conta não tem acesso a nenhuma empresa ativa. Fale com o administrador do Zelo.
+        </p>
+      )}
+      <LoginForm back={typeof back === "string" ? back : ""} />
+    </>
+  );
 }
 
 export default function LoginPage(props: PageProps<"/login">) {
@@ -25,12 +35,14 @@ export default function LoginPage(props: PageProps<"/login">) {
         <Suspense>
           <Form {...props} />
         </Suspense>
-        <p className="mt-5 text-center text-xs text-muted-foreground">
-          Problemas para entrar? Fale com o administrador do Zelo.
+        <p className="mt-5 text-center text-sm">
+          <Link href="/login/esqueci" className="text-muted-foreground underline">
+            Esqueci minha senha
+          </Link>
         </p>
       </section>
       <p className="vidro-cartao absolute bottom-5 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-        Zelo · Eco Gesso
+        Zelo
       </p>
     </main>
   );

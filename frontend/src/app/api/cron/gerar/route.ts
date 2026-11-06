@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { gerarOrdens } from "@/lib/gerar";
+import { gerarOrdensDeTodasAsEmpresas } from "@/lib/gerar";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 /** Geração diária das ordens (Vercel Cron, ver vercel.json). Protegida por CRON_SECRET. */
@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
   if (!confere) return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
 
   try {
-    const resultado = await gerarOrdens(supabaseAdmin(), "cron");
-    return NextResponse.json(resultado);
+    const resultado = await gerarOrdensDeTodasAsEmpresas(supabaseAdmin());
+    return NextResponse.json(resultado, { status: resultado.falhas.length ? 500 : 200 });
   } catch (e) {
     return NextResponse.json({ erro: e instanceof Error ? e.message : "falha" }, { status: 500 });
   }

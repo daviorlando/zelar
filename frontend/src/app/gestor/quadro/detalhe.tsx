@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, CheckCircle2, Gauge, Image as ImageIcon } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Gauge, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/zelo/badge";
 import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
 import type { Frequencia } from "@/lib/plano";
@@ -46,7 +46,7 @@ const data = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit"
 const quando = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const dia = (d: string) => data.format(new Date(`${d}T12:00:00Z`));
 
-const ICONE = { ok: CheckCircle2, done: CheckCircle2, measured: Gauge, problem: AlertTriangle, blocked: Ban } as const;
+const ICONE = { ok: CheckCircle2, done: CheckCircle2, measured: Gauge, problem: AlertTriangle, blocked: Ban, skipped: CircleHelp } as const;
 
 /** Detalhe de uma ordem: o que o celular respondeu em cada atividade, com foto e áudio. */
 export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: string }) {
@@ -72,8 +72,8 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
     );
   }
 
-  // Impedidos primeiro: é por eles que o gestor abriu a ordem.
-  const impedido = (i: Item) => (i.result === "blocked" ? 0 : 1);
+  // Impedidos e pulados primeiro: é por eles que o gestor abriu a ordem.
+  const impedido = (i: Item) => (i.result === "blocked" ? 0 : i.result === "skipped" ? 1 : 2);
   const itens = [...ordem.work_order_item].sort((a, b) => impedido(a) - impedido(b) || a.plan_item.source_row - b.plan_item.source_row);
   const caminhos = itens.flatMap((i) => i.evidence.map((e) => e.storage_path));
   const assinadas = caminhos.length ? (await supabase.storage.from("evidence").createSignedUrls(caminhos, 3600)).data ?? [] : [];
@@ -82,7 +82,8 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
   const nome = nomeLegivel(ordem.equipment.name, ordem.equipment.tag);
   const coluna = COLUNAS.find((c) => c.id === ordem.status);
   const prazo = prazoRelativo(ordem.due_date, hojeNaUnidade());
-  const respondidos = itens.filter((i) => i.result).length;
+  const pulados = itens.filter((i) => i.result === "skipped").length;
+  const respondidos = itens.filter((i) => i.result && i.result !== "skipped").length;
   const quem = [...new Set(itens.flatMap((i) => (i.worker ? [i.worker.name] : [])))];
 
   return (
@@ -141,7 +142,13 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
           </p>
         )}
 
-        <AcoesDoDetalhe id={ordem.id} nome={nome} situacao={ordem.status} />
+        {pulados > 0 && (
+          <p className="rounded-sm border border-warning bg-warning-soft px-3 py-2 text-sm text-warning">
+            {pulados === 1 ? "1 item ficou" : `${pulados} itens ficaram`} sem resposta: o funcionário não soube responder. Valide assim mesmo ou devolva depois de explicar.
+          </p>
+        )}
+
+        <AcoesDoDetalhe id={ordem.id} nome={nome} situacao={ordem.status} pulados={pulados} />
 
         <ol className="flex flex-col divide-y divide-border border-t border-border">
           {itens.map((i) => {

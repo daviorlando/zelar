@@ -1,17 +1,18 @@
-import { recusarAparelho } from "@/lib/aparelho";
+import { autenticarAparelho } from "@/lib/aparelho";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { badgeHash, PHOTO_BUCKET, type Worker } from "@/lib/workers";
+import { badgeHash, PHOTO_BUCKET, pinHash, type Worker } from "@/lib/workers";
 
-/** Lista de funcionários para o celular guardar e entrar sem internet.
- * Leva o hash do crachá, nunca o código: uma cópia do aparelho não refaz crachás. */
+/** Lista de funcionários da empresa do aparelho, para ele guardar e entrar sem internet.
+ * Leva hashes do crachá e do PIN: uma cópia do aparelho não refaz crachás nem lê o PIN direto. */
 export async function GET(request: Request) {
-  const recusa = recusarAparelho(request);
-  if (recusa) return recusa;
+  const aparelho = await autenticarAparelho(request);
+  if (aparelho instanceof Response) return aparelho;
 
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from("worker")
     .select("id, name, pin, photo_path, badge_token, active, updated_at")
+    .eq("company_id", aparelho.companyId)
     .order("name");
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const workers = data as (Worker & { updated_at: string })[];
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
     workers: workers.map((w) => ({
       id: w.id,
       name: w.name,
-      pin: w.pin,
+      // O PIN em texto só vai para o APK antigo, que não sabe conferir o hash.
+      ...(aparelho.legado ? { pin: w.pin } : { pinHash: pinHash(w.id, w.pin) }),
       badgeHash: badgeHash(w.badge_token),
       active: w.active,
       photoPath: w.photo_path,
@@ -32,4 +34,3 @@ export async function GET(request: Request) {
     })),
   });
 }
-

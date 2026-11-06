@@ -88,6 +88,11 @@ export function Quadro({ ordens, hoje, consulta }: { ordens: CartaoDaOrdem[]; ho
   const href = (id: string) => `?${consulta ? `${consulta}&` : ""}ordem=${id}`;
 
   function fazerValidar(ordem: CartaoDaOrdem) {
+    // Com item sem resposta, a decisão é no detalhe, que mostra quais são e pede o aceite.
+    if (ordem.pulados > 0) {
+      toast.info(`${ordem.equipamento} tem ${ordem.pulados} sem resposta: abra a ordem para validar.`);
+      return;
+    }
     mover(ordem.id, "done");
     iniciar(async () => {
       const r = await validar(ordem.id);

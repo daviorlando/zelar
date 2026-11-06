@@ -1,4 +1,5 @@
-import { ehUuid, recusarAparelho } from "@/lib/aparelho";
+import { autenticarAparelho, ehUuid, funcionarioDaEmpresa } from "@/lib/aparelho";
+import { FOTO_DE_MAQUINA } from "@/lib/plano";
 import { hojeNaUnidade, JANELA_DIAS, somarDias } from "@/lib/schedule";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -39,14 +40,13 @@ type Linha = {
  * Os textos das atividades vão uma vez só (planItems), não repetidos em cada ordem.
  */
 export async function GET(request: Request) {
-  const recusa = recusarAparelho(request);
-  if (recusa) return recusa;
+  const aparelho = await autenticarAparelho(request);
+  if (aparelho instanceof Response) return aparelho;
   const worker = new URL(request.url).searchParams.get("worker");
   if (!ehUuid(worker)) return Response.json({ error: "funcionário inválido" }, { status: 400 });
 
   const supabase = supabaseAdmin();
-  const { data: pessoa } = await supabase.from("worker").select("active").eq("id", worker).maybeSingle();
-  if (!pessoa?.active) return Response.json({ error: "funcionário inexistente ou desativado" }, { status: 403 });
+  if (!(await funcionarioDaEmpresa(worker, aparelho.companyId))) return Response.json({ error: "funcionário inexistente ou desativado" }, { status: 403 });
 
   const { data: setores } = await supabase.from("worker_sector").select("sector_code").eq("worker_id", worker);
   const codigos = (setores ?? []).map((s) => s.sector_code).filter((c) => /^[A-Z]$/.test(c));
@@ -59,6 +59,7 @@ export async function GET(request: Request) {
        work_order_item (id, result, measured_value, block_reason,
          plan_item:plan_item_id (id, equipment_id, source_row, item_type, instruction_kind, activity, measurement_unit, measurement_min, measurement_max))`,
     )
+    .eq("company_id", aparelho.companyId)
     .in("status", ["open", "in_progress", "blocked"])
     .lte("period_start", somarDias(hoje, JANELA_DIAS))
     .order("due_date")
@@ -81,11 +82,17 @@ export async function GET(request: Request) {
     ? ((
         await supabase
           .from("equipment")
-          .select("id, tag, name, parent_id")
+          .select("id, tag, name, parent_id, brand, model, power_cv, rpm, photo_path")
+          .eq("company_id", aparelho.companyId)
           .or(`id.in.(${raizes.join(",")}),parent_id.in.(${raizes.join(",")})`)
           .order("tag")
       ).data ?? [])
     : [];
+
+  // Foto da máquina: mesmo prazo das fotos de funcionário; o celular baixa e guarda.
+  const fotos = equipamentos.flatMap((e) => (!e.parent_id && e.photo_path ? [e.photo_path as string] : []));
+  const assinadas = fotos.length ? (await supabase.storage.from(FOTO_DE_MAQUINA).createSignedUrls(fotos, 86400)).data : [];
+  const urlDaFoto = new Map(assinadas?.flatMap((s) => (s.path && s.signedUrl ? [[s.path, s.signedUrl] as const] : [])));
 
   return Response.json({
     today: hoje,
@@ -96,6 +103,12 @@ export async function GET(request: Request) {
         id: e.id,
         tag: e.tag,
         name: e.name,
+        brand: e.brand,
+        model: e.model,
+        powerCv: e.power_cv,
+        rpm: e.rpm,
+        photoPath: e.photo_path,
+        photoUrl: e.photo_path ? (urlDaFoto.get(e.photo_path) ?? null) : null,
         components: equipamentos.filter((c) => c.parent_id === e.id).map((c) => ({ id: c.id, tag: c.tag, name: c.name })),
       })),
     planItems: [...planItems.values()].map((p) => ({

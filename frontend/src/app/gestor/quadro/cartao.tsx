@@ -2,7 +2,7 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, Ban, Ellipsis, Undo2 } from "lucide-react";
+import { AlertTriangle, Ban, CircleHelp, Ellipsis, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
 import {
@@ -116,6 +116,12 @@ export function Cartao({
           <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive" title="Problemas encontrados">
             <AlertTriangle className="size-3.5" aria-hidden />
             {ordem.problemas}
+          </span>
+        )}
+        {ordem.pulados > 0 && (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-warning" title="Itens que o funcionário não soube responder">
+            <CircleHelp className="size-3.5" aria-hidden />
+            {ordem.pulados}
           </span>
         )}
         {ordem.devolvida && (

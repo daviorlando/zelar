@@ -357,7 +357,7 @@ export function FormularioDeAtividade({
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Frequência" htmlFor="at-freq">
-          <NativeSelect id="at-freq" name="frequency" defaultValue={atividade?.frequency ?? frequencia ?? "daily"} required>
+          <NativeSelect id="at-freq" name="frequency" defaultValue={atividade?.frequency ?? frequencia ?? "weekly"} required>
             {FREQUENCIAS.map((f) => (
               <option key={f} value={f}>
                 {ROTULO_FREQUENCIA[f]}

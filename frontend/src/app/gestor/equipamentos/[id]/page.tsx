@@ -6,9 +6,10 @@ import { EsqueletoDeDetalhe } from "@/components/zelo/esqueletos";
 import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
 import { PageHeader } from "@/components/zelo/misc";
 import { Table, TD, TH, TR } from "@/components/zelo/table";
-import { FREQUENCIAS, ROTULO_FREQUENCIA, ROTULO_TIPO, type Atividade, type Equipamento } from "@/lib/plano";
+import { FOTO_DE_MAQUINA, FREQUENCIAS, ROTULO_FREQUENCIA, ROTULO_TIPO, type Atividade, type Equipamento } from "@/lib/plano";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { excluirAtividade, excluirEquipamento, salvarAtividade, salvarEquipamento } from "../actions";
+import { FotoDaMaquina } from "../foto";
 import { BotaoExcluir, FormularioDeAtividade, FormularioDeComponente, FormularioDeEquipamento } from "../formularios";
 
 export const metadata = { title: "Equipamento" };
@@ -22,7 +23,7 @@ export default function EquipamentoPage(props: PageProps<"/gestor/equipamentos/[
 }
 
 const TIPO_CURTO = { inspection: "Inspeção", action: "Ação", measurement: "Medição" } as const;
-const CAMPOS = "id, tag, name, parent_id, sector_code, brand, model, power_cv, rpm, working_temp, lubricant";
+const CAMPOS = "id, tag, name, parent_id, sector_code, brand, model, power_cv, rpm, working_temp, lubricant, photo_path";
 
 async function Detalhe({ params }: PageProps<"/gestor/equipamentos/[id]">) {
   await connection();
@@ -51,6 +52,9 @@ async function Detalhe({ params }: PageProps<"/gestor/equipamentos/[id]">) {
     .order("source_row");
   const atividades = (itens ?? []) as Atividade[];
   const nomeDe = new Map(alvos.map((e) => [e.id, e]));
+  const urlDaFoto = principal.photo_path
+    ? (await supabase.storage.from(FOTO_DE_MAQUINA).createSignedUrl(principal.photo_path, 3600)).data?.signedUrl ?? null
+    : null;
 
   return (
     <>
@@ -75,6 +79,10 @@ async function Detalhe({ params }: PageProps<"/gestor/equipamentos/[id]">) {
         </div>
       </div>
       <div className="flex flex-col gap-4">
+        <Card title="Foto da máquina">
+          <FotoDaMaquina key={principal.photo_path ?? "sem-foto"} id={principal.id} nome={principal.name ?? principal.tag} url={urlDaFoto} />
+        </Card>
+
         <Card title="Dados técnicos">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             {(

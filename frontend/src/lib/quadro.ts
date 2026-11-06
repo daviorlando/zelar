@@ -25,6 +25,8 @@ export type CartaoDaOrdem = {
   situacao: SituacaoDaOrdem;
   total: number;
   respondidos: number;
+  /** "Não soube responder": não conta como feito. */
+  pulados: number;
   problemas: number;
   /** Motivos dos itens "não consegui", já em texto. */
   impedimentos: string[];
@@ -59,6 +61,7 @@ export const RESULTADO: Record<string, { texto: string; tom: BadgeTone }> = {
   measured: { texto: "Medido", tom: "info" },
   problem: { texto: "Encontrou problema", tom: "danger" },
   blocked: { texto: "Não conseguiu", tom: "warn" },
+  skipped: { texto: "Não soube responder", tom: "warn" },
   na: { texto: "Não se aplica", tom: "neutral" },
 };
 

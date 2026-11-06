@@ -1,10 +1,11 @@
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Avatar } from "@/components/zelo/painel/avatar";
 import { Busca } from "@/components/zelo/painel/busca";
 import { PainelShell } from "@/components/zelo/painel/shell";
 import { VoltarDoTopo } from "@/components/zelo/voltar";
-import { supabaseForUser } from "@/lib/supabase/server";
+import { perfilAtual } from "@/lib/empresa";
 
 export default function GestorLayout({ children }: LayoutProps<"/gestor">) {
   return (
@@ -33,13 +34,15 @@ export default function GestorLayout({ children }: LayoutProps<"/gestor">) {
 
 async function Gestor() {
   await connection();
-  const supabase = await supabaseForUser();
-  const { data } = await supabase.auth.getClaims();
-  const email = (data?.claims?.email as string | undefined) ?? "";
+  const perfil = await perfilAtual();
+  if (perfil?.papel === "super_admin") redirect("/admin/empresas");
+  // Conta sem empresa ou empresa desativada: o RLS já esconde os dados; aqui ela entende o porquê.
+  if (!perfil?.empresa) redirect("/login?sem_acesso=1");
+  const email = perfil.email;
   return (
     <span className="flex items-center gap-2.5 border-l border-border pl-3" title={email}>
       <span className="hidden text-right leading-tight sm:block">
-        <span className="block text-sm font-medium text-foreground">Eco Gesso</span>
+        <span className="block text-sm font-medium text-foreground">{perfil.empresa}</span>
         <span className="block max-w-40 truncate text-xs text-muted-foreground">{email}</span>
       </span>
       <Avatar nome={email} />

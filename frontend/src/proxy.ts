@@ -25,14 +25,16 @@ export async function proxy(request: NextRequest) {
     login.searchParams.set("voltar", request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.redirect(login);
   }
-  // Senha temporária: antes de usar o painel, a pessoa escolhe a própria.
-  const metadados = data.claims.user_metadata as { trocar_senha?: boolean } | undefined;
-  if (metadados?.trocar_senha && request.nextUrl.pathname !== "/gestor/minha-senha") {
-    return NextResponse.redirect(new URL("/gestor/minha-senha", request.url));
+  // Senha temporária: antes de usar o painel, a pessoa escolhe a própria. Fica em app_metadata
+  // porque user_metadata a própria pessoa consegue editar. O papel é conferido nas páginas e ações.
+  const metadados = data.claims.app_metadata as { trocar_senha?: boolean } | undefined;
+  const trocaSenha = request.nextUrl.pathname.startsWith("/admin") ? "/admin/minha-senha" : "/gestor/minha-senha";
+  if (metadados?.trocar_senha && request.nextUrl.pathname !== trocaSenha) {
+    return NextResponse.redirect(new URL(trocaSenha, request.url));
   }
   return response;
 }
 
 export const config = {
-  matcher: ["/gestor/:path*"],
+  matcher: ["/gestor/:path*", "/admin/:path*"],
 };

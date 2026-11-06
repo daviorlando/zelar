@@ -1,8 +1,10 @@
 // Vocabulário do plano de manutenção (tabelas sector, equipment, plan_item).
 // Os valores em inglês são os do banco; os rótulos são o que o gestor lê.
 
-export const FREQUENCIAS = ["daily", "weekly", "monthly", "quarterly", "semiannual", "annual"] as const;
-export type Frequencia = (typeof FREQUENCIAS)[number];
+export type Frequencia = "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual";
+
+/** O que dá para escolher e o que gera ordens. "daily" saiu: só resta em ordens antigas, por isso continua nos rótulos. */
+export const FREQUENCIAS: readonly Frequencia[] = ["weekly", "monthly", "quarterly", "semiannual", "annual"];
 
 export const ROTULO_FREQUENCIA: Record<Frequencia, string> = {
   daily: "Diária",
@@ -12,6 +14,9 @@ export const ROTULO_FREQUENCIA: Record<Frequencia, string> = {
   semiannual: "Semestral",
   annual: "Anual",
 };
+
+/** Bucket das fotos de máquina, no caminho "<id do equipamento>/<data>.jpg". */
+export const FOTO_DE_MAQUINA = "equipment-photos";
 
 export const TIPOS_DE_ITEM = ["inspection", "action", "measurement"] as const;
 export type TipoDeItem = (typeof TIPOS_DE_ITEM)[number];
@@ -39,6 +44,7 @@ export type Equipamento = {
   rpm: number | null;
   working_temp: string | null;
   lubricant: string | null;
+  photo_path?: string | null;
 };
 
 export type ItemDoPlano = {
