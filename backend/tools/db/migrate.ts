@@ -1,5 +1,6 @@
 // Aplica, em ordem, as migrações de supabase/migrations que ainda não rodaram.
-// Uso: npm run db:migrate
+// Uso: npm run db:migrate [-- --until=<prefixo>]
+// Banco remoto exige ZELO_CONFIRMA_REMOTO=<host> (ver client.ts).
 // Cada arquivo roda numa transação; o registro fica em zelo_meta.migration (fora da API).
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -24,7 +25,11 @@ async function main() {
 
     const done = new Set((await db.query("select name from zelo_meta.migration")).rows.map((r) => r.name as string));
     const files = (await readdir(DIR)).filter((f) => f.endsWith(".sql")).sort();
-    const pending = files.filter((f) => !done.has(f));
+    // --until=<prefixo>: para no arquivo indicado (inclusive). Serve para testar a atualização a partir de um banco antigo.
+    const until = process.argv.find((a) => a.startsWith("--until="))?.slice("--until=".length);
+    const last = until ? files.findIndex((f) => f.startsWith(until)) : files.length - 1;
+    if (last < 0) throw new Error(`--until não corresponde a nenhuma migração: ${until}`);
+    const pending = files.slice(0, last + 1).filter((f) => !done.has(f));
     if (pending.length === 0) console.log("Banco em dia: nenhuma migração pendente.");
 
     for (const file of pending) {
