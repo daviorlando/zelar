@@ -162,7 +162,111 @@ Future<ProviderContainer> abrirDevolvida(WidgetTester tester, Size size, FakeSpe
 /// Deixa vencer o temporizador do "Desfazer" antes do fim do teste.
 Future<void> drainTimers(WidgetTester tester) => tester.pump(const Duration(seconds: 9));
 
+/// Tem que dar para chegar ao botão rolando a tela, e o toque tem que acertá-lo.
+Future<void> alcancar(WidgetTester tester, String key) async {
+  final alvo = find.byKey(Key(key));
+  await tester.ensureVisible(alvo);
+  await tester.pumpAndSettle();
+  final centro = tester.getCenter(alvo);
+  final tela = tester.view.physicalSize / tester.view.devicePixelRatio;
+  expect(centro.dx >= 0 && centro.dx <= tela.width && centro.dy >= 0 && centro.dy <= tela.height, isTrue, reason: '$key fora da tela: $centro');
+  await tester.tap(alvo);
+  await tester.pumpAndSettle();
+}
+
+Future<void> enterPinAlcancando(WidgetTester tester) async {
+  await alcancar(tester, 'worker-${demoWorker.id}');
+  for (final i in demoWorker.pin) {
+    await alcancar(tester, 'pin-$i');
+  }
+}
+
 void main() {
+  group('abertura', () {
+    testWidgets('aparece, some sozinha e deixa a entrada falar', (tester) async {
+      final voz = FakeSpeaker();
+      tester.view.physicalSize = phones.values.first * 3;
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final c = ProviderContainer(overrides: [speakerProvider.overrideWithValue(voz)]);
+      addTearDown(c.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(container: c, child: const ZeloApp()));
+      expect(find.byKey(const Key('opening')), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('opening')), findsNothing);
+      expect(voz.said, [Phrases.entry]);
+    });
+
+    testWidgets('na primeira vez, cobre a troca de tela e a entrada não começa a falar', (tester) async {
+      final voz = FakeSpeaker();
+      await startApp(tester, phones.values.first, speaker: voz, overrides: [
+        setupProvider.overrideWith(SetupPendente.new),
+        systemSettingsProvider.overrideWithValue(FakeSystem()),
+      ]);
+      expect(find.byKey(const Key('opening')), findsNothing);
+      expect(find.text('A voz está pronta'), findsOneWidget);
+      expect(voz.said, isNot(contains(Phrases.entry)));
+    });
+
+    testWidgets('com as animações do sistema desligadas, sai sem animar', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await startApp(tester, phones.values.first);
+      expect(find.byKey(const Key('opening')), findsNothing);
+    });
+  });
+
+  group('fonte do celular', () {
+    for (final escala in const [1.0, 1.3, 2.0]) {
+      for (final MapEntry(key: name, value: size) in phones.entries) {
+        testWidgets('escala $escala, $name: telas sem estouro e botões alcançáveis', (tester) async {
+          tester.platformDispatcher.textScaleFactorTestValue = escala;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+          // Primeira inicialização, com a voz faltando e o som desligado: o passo mais cheio.
+          final voz = FakeSpeaker()..installed = false;
+          final c = await startApp(tester, size, speaker: voz, overrides: [
+            setupProvider.overrideWith(SetupPendente.new),
+            systemSettingsProvider.overrideWithValue(FakeSystem()..volume = 0),
+          ]);
+          await alcancar(tester, 'setup-later');
+          await alcancar(tester, 'setup-next');
+          await alcancar(tester, 'setup-finish');
+
+          // Entrada, foto e figuras.
+          await alcancar(tester, 'worker-${demoWorker.id}');
+          for (final i in demoWorker.pin) {
+            await alcancar(tester, 'pin-$i');
+          }
+
+          // Hoje, reconhecer, problema com motivo e medição.
+          await alcancar(tester, 'order-o1');
+          await alcancar(tester, 'recognize-ok');
+          await alcancar(tester, 'answer-problem');
+          await alcancar(tester, 'reason-hot');
+          await alcancar(tester, 'reason-done');
+          await alcancar(tester, 'key-7');
+          await alcancar(tester, 'measure-confirm');
+          expect(c.read(sessionProvider).answersFor('o1')['i2']!.value, 7);
+
+          // Outra ordem, até concluir.
+          c.read(sessionProvider.notifier).reset();
+          await tester.pumpAndSettle();
+          c.read(routerProvider).go('/');
+          await tester.pumpAndSettle();
+          await enterPinAlcancando(tester);
+          await alcancar(tester, 'order-o2');
+          await alcancar(tester, 'recognize-ok');
+          await alcancar(tester, 'answer-ok');
+          await alcancar(tester, 'answer-done');
+          await alcancar(tester, 'conclude');
+          expect(c.read(sessionProvider).finished, contains('o2'));
+          await drainTimers(tester);
+        });
+      }
+    }
+  });
+
   group('voz pt-BR offline', () {
     test('reconhece a voz do Samsung, que vem com locale diferente', () {
       expect(

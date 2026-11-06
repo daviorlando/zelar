@@ -17,6 +17,7 @@ import 'ui/screens/reason_screen.dart';
 import 'ui/screens/recognize_screen.dart';
 import 'ui/screens/setup_screen.dart';
 import 'ui/screens/today_screen.dart';
+import 'ui/opening.dart';
 import 'ui/theme.dart';
 import 'state/setup.dart';
 
@@ -105,8 +106,13 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
       if (worker != null && worker.id != before?.id) ref.read(ordersProvider.notifier).loadFor(worker);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(setupProvider.notifier).load();
-      if (ref.read(setupProvider)) ref.read(routerProvider).go('/primeira-vez');
+      try {
+        await ref.read(setupProvider.notifier).load();
+        if (ref.read(setupProvider)) ref.read(routerProvider).go('/primeira-vez');
+      } finally {
+        // Mesmo com erro: a abertura não pode ficar presa na tela.
+        ref.read(startupProvider.notifier).done();
+      }
       // Lista guardada primeiro (offline), depois tenta atualizar pelo painel.
       ref.read(workersProvider.notifier).load();
       await ref.read(outboxProvider.notifier).load();
@@ -129,6 +135,7 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
       theme: buildTheme(),
       debugShowCheckedModeBanner: false,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) => ZeloOpening(ready: ref.watch(startupProvider), child: child!),
     );
   }
 }

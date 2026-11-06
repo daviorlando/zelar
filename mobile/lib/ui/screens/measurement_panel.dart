@@ -62,103 +62,100 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
     final m = widget.measurement;
     final value = _value;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        GestureDetector(
-          onTap: () => ref.read(speakerProvider).say(_text.isEmpty ? Phrases.typeNumberFirst : Phrases.number(_text, m.spokenUnit)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: _warned ? ZeloColors.overdue : Colors.black26, width: 3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _text.isEmpty ? '—' : _text,
-                    key: const Key('measure-value'),
-                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: () => ref.read(speakerProvider).say(_text.isEmpty ? Phrases.typeNumberFirst : Phrases.number(_text, m.spokenUnit)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: _warned ? ZeloColors.overdue : Colors.black26, width: 3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _text.isEmpty ? '—' : _text,
+                      key: const Key('measure-value'),
+                      style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800),
+                    ),
                   ),
-                ),
-                Text(m.symbol, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+                  Text(m.symbol, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+          // Sem limites do responsável técnico não há faixa: o app só anota o número.
+          if (m.hasRange) ...[const SizedBox(height: 8), RangeBar(measurement: m, value: value)],
+          const SizedBox(height: 8),
+          Expanded(
+            child: Column(
+              children: [
+                for (final row in const [
+                  ['1', '2', '3'],
+                  ['4', '5', '6'],
+                  ['7', '8', '9'],
+                  [',', '0', '⌫'],
+                ])
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (final k in row)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: FilledButton.tonal(
+                                key: Key('key-$k'),
+                                style: FilledButton.styleFrom(
+                                minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  textStyle: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () => _key(k),
+                                child: k == '⌫' ? const Icon(Icons.backspace, size: 32) : Text(k),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-        ),
-        // Sem limites do responsável técnico não há faixa: o app só anota o número.
-        if (m.hasRange) ...[
           const SizedBox(height: 8),
-          RangeBar(measurement: m, value: value),
-        ],
-        const SizedBox(height: 8),
-        Expanded(
-          child: Column(
+          Row(
             children: [
-              for (final row in const [
-                ['1', '2', '3'],
-                ['4', '5', '6'],
-                ['7', '8', '9'],
-                [',', '0', '⌫'],
-              ])
-                Expanded(
-                  child: Row(
-                    children: [
-                      for (final k in row)
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(3),
-                            child: FilledButton.tonal(
-                              key: Key('key-$k'),
-                              style: FilledButton.styleFrom(
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                textStyle: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
-                              ),
-                              onPressed: () => _key(k),
-                              child: k == '⌫' ? const Icon(Icons.backspace, size: 32) : Text(k),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+              Expanded(
+                child: BigActionButton(
+                  key: const Key('measure-help'),
+                  label: 'Preciso de ajuda',
+                  icon: Icons.support_agent,
+                  compact: true,
+                  color: ZeloColors.blocked,
+                  spokenHelp: Phrases.helpButton,
+                  onPressed: widget.onHelp,
                 ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: BigActionButton(
+                  key: const Key('measure-confirm'),
+                  label: 'Confirmar',
+                  icon: Icons.check_circle,
+                  compact: true,
+                  color: ZeloColors.ok,
+                  spokenHelp: Phrases.confirmButton,
+                  disabledHint: Phrases.typeNumberFirst,
+                  onPressed: value == null ? null : _confirm,
+                ),
+              ),
             ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: BigActionButton(
-                key: const Key('measure-help'),
-                label: 'Preciso de ajuda',
-                icon: Icons.support_agent,
-                compact: true,
-                color: ZeloColors.blocked,
-                spokenHelp: Phrases.helpButton,
-                onPressed: widget.onHelp,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: BigActionButton(
-                key: const Key('measure-confirm'),
-                label: 'Confirmar',
-                icon: Icons.check_circle,
-                compact: true,
-                color: ZeloColors.ok,
-                spokenHelp: Phrases.confirmButton,
-                disabledHint: Phrases.typeNumberFirst,
-                onPressed: value == null ? null : _confirm,
-              ),
-            ),
-          ],
-        ),
-      ],
+        ],
     );
   }
 }
@@ -185,12 +182,12 @@ class RangeBar extends StatelessWidget {
         builder: (context, box) {
           final w = box.maxWidth;
           Widget zone(double from, double to, Color c) => Positioned(
-                left: pos(from) * w,
-                width: (pos(to) - pos(from)) * w,
-                top: 6,
-                height: 20,
-                child: ColoredBox(color: c),
-              );
+            left: pos(from) * w,
+            width: (pos(to) - pos(from)) * w,
+            top: 6,
+            height: 20,
+            child: ColoredBox(color: c),
+          );
           return Stack(
             children: [
               zone(lo, hi, const Color(0xFFC62828)),

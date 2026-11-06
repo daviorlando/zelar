@@ -8,6 +8,8 @@ import '../../data/fixtures.dart';
 import '../../data/workers_repo.dart';
 import '../../domain/models.dart';
 import '../../state/session.dart';
+import '../../state/setup.dart';
+import '../logo.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -29,7 +31,14 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(eventLogProvider.notifier).add('tela', 'entrada');
-      _speakPrompt();
+      if (ref.read(startupProvider)) {
+        _speakPrompt();
+        return;
+      }
+      // Ao abrir o app: se a primeira inicialização vai tomar a tela, esta não começa a falar.
+      ref.listenManual(startupProvider, (_, ready) {
+        if (ready && mounted && !ref.read(setupProvider)) _speakPrompt();
+      });
     });
   }
 
@@ -100,94 +109,95 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(ZeloSizes.gutter),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  iconSize: 48,
-                  tooltip: 'Ouvir de novo',
-                  icon: const Icon(Icons.volume_up),
-                  onPressed: _speakPrompt,
-                ),
-              ),
-              BigActionButton(
-                key: const Key('badge'),
-                label: 'Ler meu crachá',
-                icon: Icons.badge,
-                color: ZeloColors.scan,
-                spokenHelp: Phrases.badgeButton,
-                onPressed: _scanBadge,
-              ),
-              const SizedBox(height: 16),
-              if (locked)
-                Expanded(
-                  child: GestureDetector(
-                    // Facilitador: segurar o cadeado desbloqueia (em produção, só o gestor pelo painel).
-                    onLongPress: () {
-                      ref.read(sessionProvider.notifier).reset();
-                      ref.read(eventLogProvider.notifier).add('pin', 'desbloqueado pelo facilitador');
-                    },
-                    child: const Center(child: Icon(Icons.lock, size: 160, color: ZeloColors.overdue)),
-                  ),
-                )
-              else if (selected == null) ...[
-                Text('Sem crachá? Toque na sua foto', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                Expanded(child: _WorkerGrid(workers: workers, onTap: _select)),
-              ] else ...[
+          child: FillOrScroll(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Row(
                   children: [
-                    WorkerAvatar(worker: selected, radius: 28),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(selected.name, style: Theme.of(context).textTheme.titleMedium)),
-                    GestureDetector(
-                      onLongPress: () => ref.read(speakerProvider).say(Phrases.otherPerson),
-                      child: IconButton(
-                        key: const Key('worker-back'),
-                        iconSize: 40,
-                        tooltip: 'Escolher outra foto',
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => _select(null),
-                      ),
+                    const Expanded(
+                      child: Align(alignment: Alignment.centerLeft, child: ZeloBrand()),
                     ),
+                    IconButton(iconSize: 48, tooltip: 'Ouvir de novo', icon: const Icon(Icons.volume_up), onPressed: _speakPrompt),
                   ],
                 ),
-                const SizedBox(height: 12),
-                _PinDots(filled: _typed.length, total: selected.pin.length),
-                const SizedBox(height: 12),
-                // Linhas e colunas flexíveis: as nove figuras cabem sem rolar, até em 360x640.
-                Expanded(
-                  child: Column(
+                BigActionButton(
+                  key: const Key('badge'),
+                  label: 'Ler meu crachá',
+                  icon: Icons.badge,
+                  color: ZeloColors.scan,
+                  spokenHelp: Phrases.badgeButton,
+                  onPressed: _scanBadge,
+                ),
+                const SizedBox(height: 16),
+                if (locked)
+                  Expanded(
+                    child: GestureDetector(
+                      // Facilitador: segurar o cadeado desbloqueia (em produção, só o gestor pelo painel).
+                      onLongPress: () {
+                        ref.read(sessionProvider.notifier).reset();
+                        ref.read(eventLogProvider.notifier).add('pin', 'desbloqueado pelo facilitador');
+                      },
+                      child: const Center(child: Icon(Icons.lock, size: 160, color: ZeloColors.overdue)),
+                    ),
+                  )
+                else if (selected == null) ...[
+                  Text('Sem crachá? Toque na sua foto', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  _WorkerGrid(workers: workers, onTap: _select),
+                ] else ...[
+                  Row(
                     children: [
-                      for (var row = 0; row < 3; row++)
-                        Expanded(
-                          child: Row(
-                            children: [
-                              for (var i = row * 3; i < row * 3 + 3; i++)
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(5),
-                                    // O nome da figura nunca é falado: revelaria o PIN para quem está perto.
-                                    child: Semantics(
-                                      button: true,
-                                      label: pinFigures[i].$3,
-                                      child: Material(
-                                        color: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
-                                          side: const BorderSide(color: Colors.black26, width: 2),
-                                        ),
-                                        child: InkWell(
-                                          key: Key('pin-$i'),
-                                          borderRadius: BorderRadius.circular(16),
-                                          onTap: () => _tap(i),
-                                          child: Center(
-                                            child: FittedBox(
-                                              child: Padding(
-                                                padding: const EdgeInsets.all(6),
-                                                child: Icon(pinFigures[i].$1, size: 64, color: pinFigures[i].$2),
+                      WorkerAvatar(worker: selected, radius: 28),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(selected.name, style: Theme.of(context).textTheme.titleMedium)),
+                      GestureDetector(
+                        onLongPress: () => ref.read(speakerProvider).say(Phrases.otherPerson),
+                        child: IconButton(
+                          key: const Key('worker-back'),
+                          iconSize: 40,
+                          tooltip: 'Escolher outra foto',
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => _select(null),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _PinDots(filled: _typed.length, total: selected.pin.length),
+                  const SizedBox(height: 12),
+                  // Linhas e colunas flexíveis: as nove figuras cabem sem rolar, até em 360x640.
+                  Expanded(
+                    child: Column(
+                      children: [
+                        for (var row = 0; row < 3; row++)
+                          Expanded(
+                            child: Row(
+                              children: [
+                                for (var i = row * 3; i < row * 3 + 3; i++)
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(5),
+                                      // O nome da figura nunca é falado: revelaria o PIN para quem está perto.
+                                      child: Semantics(
+                                        button: true,
+                                        label: pinFigures[i].$3,
+                                        child: Material(
+                                          color: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                            side: const BorderSide(color: Colors.black26, width: 2),
+                                          ),
+                                          child: InkWell(
+                                            key: Key('pin-$i'),
+                                            borderRadius: BorderRadius.circular(16),
+                                            onTap: () => _tap(i),
+                                            child: Center(
+                                              child: FittedBox(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Icon(pinFigures[i].$1, size: 64, color: pinFigures[i].$2),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -195,27 +205,27 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                                       ),
                                     ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  height: ZeloSizes.minTouch,
-                  child: GestureDetector(
-                    onLongPress: () => ref.read(speakerProvider).say(Phrases.eraseFigure),
-                    child: IconButton(
-                      iconSize: 40,
-                      tooltip: 'Apagar a última figura',
-                      icon: const Icon(Icons.backspace),
-                      onPressed: _typed.isEmpty ? null : () => setState(_typed.removeLast),
+                      ],
                     ),
                   ),
-                ),
+                  SizedBox(
+                    height: ZeloSizes.minTouch,
+                    child: GestureDetector(
+                      onLongPress: () => ref.read(speakerProvider).say(Phrases.eraseFigure),
+                      child: IconButton(
+                        iconSize: 40,
+                        tooltip: 'Apagar a última figura',
+                        icon: const Icon(Icons.backspace),
+                        onPressed: _typed.isEmpty ? null : () => setState(_typed.removeLast),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -241,46 +251,70 @@ class _WorkerGrid extends StatelessWidget {
         ),
       );
     }
-    return GridView.count(
-      crossAxisCount: 3,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 0.8,
+    // A altura vem do conteúdo, e a tela inteira rola: fonte grande não corta o nome.
+    // Com a fonte bem grande, duas colunas, para o primeiro nome caber inteiro.
+    final columns = MediaQuery.textScalerOf(context).scale(1) >= 1.5 ? 2 : 3;
+    return Column(
       children: [
-        for (final w in workers)
-          Semantics(
-            button: true,
-            label: w.name,
-            child: Material(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Colors.black26, width: 2),
-              ),
-              child: InkWell(
-                key: Key('worker-${w.id}'),
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => onTap(w),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      WorkerAvatar(worker: w, radius: 34),
-                      const SizedBox(height: 6),
-                      Text(
-                        w.name.split(' ').first,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+        for (var start = 0; start < workers.length; start += columns)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = start; i < start + columns; i++) ...[
+                  if (i > start) const SizedBox(width: 12),
+                  Expanded(
+                    child: i < workers.length ? _WorkerCard(worker: workers[i], onTap: onTap) : const SizedBox.shrink(),
                   ),
-                ),
-              ),
+                ],
+              ],
             ),
           ),
       ],
+    );
+  }
+}
+
+class _WorkerCard extends StatelessWidget {
+  const _WorkerCard({required this.worker, required this.onTap});
+
+  final Worker worker;
+  final void Function(Worker) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: worker.name,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Colors.black26, width: 2),
+        ),
+        child: InkWell(
+          key: Key('worker-${worker.id}'),
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => onTap(worker),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WorkerAvatar(worker: worker, radius: 34),
+                const SizedBox(height: 6),
+                Text(
+                  worker.name.split(' ').first,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -62,3 +62,13 @@ class SetupNotifier extends Notifier<bool> {
 }
 
 final setupProvider = NotifierProvider<SetupNotifier, bool>(SetupNotifier.new);
+
+/// A primeira tela já foi decidida: a abertura pode sair, e a entrada pode falar.
+class StartupNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void done() => state = true;
+}
+
+final startupProvider = NotifierProvider<StartupNotifier, bool>(StartupNotifier.new);

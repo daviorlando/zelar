@@ -48,9 +48,9 @@ class BigActionButton extends ConsumerWidget {
     final button = Semantics(
       button: true,
       label: label,
-      child: SizedBox(
-        height: ZeloSizes.responseHeight,
-        width: double.infinity,
+      // Altura mínima, não fixa: com a fonte grande do celular, o botão cresce com o texto.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: ZeloSizes.responseHeight, minWidth: double.infinity),
         child: FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: color,
@@ -59,7 +59,7 @@ class BigActionButton extends ConsumerWidget {
             disabledBackgroundColor: color.withValues(alpha: 0.35),
             disabledForegroundColor: foreground,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 20),
+            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 20, vertical: 8),
           ),
           onPressed: onPressed,
           // Com onLongPress o botão conta como ativo e engole o toque: desativado, quem ouve é o detector abaixo.
@@ -71,8 +71,6 @@ class BigActionButton extends ConsumerWidget {
               Expanded(
                 child: Text(
                   label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: compact ? 18 : 24, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -88,6 +86,26 @@ class BigActionButton extends ConsumerWidget {
       onTap: () => speaker.say(hint),
       onLongPress: () => speaker.say(spokenHelp ?? label),
       child: button,
+    );
+  }
+}
+
+/// Preenche a altura disponível (os Expanded de dentro dividem o que sobra) e passa a rolar
+/// quando o conteúdo não cabe, como acontece com a fonte grande do celular.
+class FillOrScroll extends StatelessWidget {
+  const FillOrScroll({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: box.maxHeight),
+          child: IntrinsicHeight(child: child),
+        ),
+      ),
     );
   }
 }

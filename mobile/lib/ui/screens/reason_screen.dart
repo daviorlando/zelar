@@ -37,8 +37,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   late final order = ref.read(ordersProvider.notifier).byId(widget.orderId);
   late final item = order.items[widget.index];
   late final component = order.equipment.component(item.componentId);
-  late final reasons =
-      widget.kind == ReasonKind.problem ? problemsByKind[component.kind]! : blockReasonsFor(item);
+  late final reasons = widget.kind == ReasonKind.problem ? problemsByKind[component.kind]! : blockReasonsFor(item);
   final _recorder = AudioRecorder();
   Timer? _limit;
   String? _reason;
@@ -83,10 +82,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
       await ref.read(speakerProvider).stop();
       final dir = await getApplicationDocumentsDirectory();
       final path = '${dir.path}/relato_${item.id}_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 32000, numChannels: 1, sampleRate: 22050),
-        path: path,
-      );
+      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 32000, numChannels: 1, sampleRate: 22050), path: path);
       setState(() => _recording = true);
       _limit = Timer(_maxRecording, _stopRecording);
     } catch (e) {
@@ -121,16 +117,11 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
 
   void _finish() {
     final outcome = widget.kind == ReasonKind.problem ? Outcome.problem : Outcome.blocked;
-    ref.read(sessionProvider.notifier).answer(
+    ref
+        .read(sessionProvider.notifier)
+        .answer(
           order.id,
-          Answer(
-            itemId: item.id,
-            outcome: outcome,
-            at: DateTime.now(),
-            reason: _reason,
-            photoPath: _photoPath,
-            audioPath: _audioPath,
-          ),
+          Answer(itemId: item.id, outcome: outcome, at: DateTime.now(), reason: _reason, photoPath: _photoPath, audioPath: _audioPath),
         );
     ref.read(eventLogProvider.notifier).add('resposta', '${item.id}: ${outcome.name} ($_reason)');
     OrderFlow.goNext(context, order, widget.index, ref.read(sessionProvider).answersFor(order.id));
@@ -144,45 +135,63 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(alignment: Alignment.centerRight, child: AudioButton(text: _prompt)),
+          Align(
+            alignment: Alignment.centerRight,
+            child: AudioButton(text: _prompt),
+          ),
           const SizedBox(height: 12),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.25,
-              children: [
-                for (final (id, icon, label, spoken) in reasons)
-                  Semantics(
-                    button: true,
-                    selected: _reason == id,
-                    label: label,
-                    child: Material(
-                      color: _reason == id ? accent.withValues(alpha: 0.25) : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: _reason == id ? accent : Colors.black26, width: _reason == id ? 5 : 2),
-                      ),
-                      child: InkWell(
-                        key: Key('reason-$id'),
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => _choose(id, spoken),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(icon, size: 56, color: ZeloColors.ink),
-                              const SizedBox(height: 4),
-                              Text(label, textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 16)),
-                            ],
+            child: LayoutBuilder(
+              builder: (context, box) {
+                // Proporção antiga enquanto o texto couber; com a fonte grande, a figura cresce para baixo.
+                final byWidth = (box.maxWidth - 10) / 2 / 1.25;
+                final byText = 80 + MediaQuery.textScalerOf(context).scale(16) * 1.5 * 3;
+                return GridView(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    mainAxisExtent: byWidth > byText ? byWidth : byText,
+                  ),
+                  children: [
+                    for (final (id, icon, label, spoken) in reasons)
+                      Semantics(
+                        button: true,
+                        selected: _reason == id,
+                        label: label,
+                        child: Material(
+                          color: _reason == id ? accent.withValues(alpha: 0.25) : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: _reason == id ? accent : Colors.black26, width: _reason == id ? 5 : 2),
+                          ),
+                          child: InkWell(
+                            key: Key('reason-$id'),
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _choose(id, spoken),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(icon, size: 56, color: ZeloColors.ink),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    label,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 12),

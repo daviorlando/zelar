@@ -59,6 +59,8 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
     context.go('${OrderFlow.item(order.id, widget.index)}/$kind');
   }
 
+  Widget _body(bool measuring, Widget content) => measuring ? FillOrScroll(child: content) : content;
+
   @override
   Widget build(BuildContext context) {
     final eq = order.equipment;
@@ -67,7 +69,8 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
 
     return ZeloScaffold(
       title: Text('${widget.index + 1} / ${order.items.length}'),
-      body: Column(
+      // Na medição, a tela inteira rola quando a fonte grande não deixa o teclado caber.
+      body: _body(measuring, Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.undoItemId != null) UndoBanner(orderId: order.id, itemId: widget.undoItemId!),
@@ -106,10 +109,13 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(item.shortText, style: Theme.of(context).textTheme.titleLarge),
+            // Texto longo com fonte grande rola aqui, sem empurrar os botões.
+            Flexible(
+              child: SingleChildScrollView(child: Text(item.shortText, style: Theme.of(context).textTheme.titleLarge)),
+            ),
           ],
         ],
-      ),
+      )),
       bottom: switch (item.type) {
         ItemType.inspection => Column(
             mainAxisSize: MainAxisSize.min,
