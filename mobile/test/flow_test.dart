@@ -302,6 +302,18 @@ void main() {
     });
   });
 
+  testWidgets('ligar o celular pela tela segue para a entrada, sem travar em Conferindo', (tester) async {
+    final c = await startApp(tester, const Size(412, 915), speaker: FakeSpeaker(), overrides: [deviceProvider.overrideWith(_AtivaDeCerteza.new)]);
+    c.read(routerProvider).go('/ativar');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('activation-code')), 'ABCD2345');
+    await tester.pump();
+    await tapKey(tester, 'activation-send');
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('activation-send')), findsNothing);
+    expect(find.byKey(const Key('badge')), findsOneWidget);
+  });
+
   for (final MapEntry(key: name, value: size) in phones.entries) {
     group('celular $name', () {
       testWidgets('PIN bloqueia após cinco erros', (tester) async {
@@ -787,4 +799,12 @@ class _TokenNaMemoria implements TokenStore {
 
   @override
   Future<void> write(String token) async => valor = token;
+}
+
+class _AtivaDeCerteza extends DeviceNotifier {
+  @override
+  Future<ActivationError?> activate(String code, {http.Client? client}) async {
+    state = false;
+    return null;
+  }
 }
