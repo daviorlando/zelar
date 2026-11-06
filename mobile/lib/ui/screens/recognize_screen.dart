@@ -67,7 +67,7 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
           Expanded(child: EquipmentPicture(icon: eq.icon, color: eq.color, label: eq.shortName, photoFile: eq.photoFile)),
           if (eq.details != null) ...[
             const SizedBox(height: 8),
-            Text(eq.details!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(eq.details!, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           ],
           const SizedBox(height: 16),
           AudioButton(text: _prompt),

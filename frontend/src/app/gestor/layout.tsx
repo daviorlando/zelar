@@ -18,6 +18,10 @@ export default function GestorLayout({ children }: LayoutProps<"/gestor">) {
           </Suspense>
           {/* À direita, busca e quem está conectado, com a empresa. No celular a busca não
               cabe e o Sair fica no menu, então esse cartão sai. */}
+          {/* No celular o cartão abaixo some: o nome da empresa continua à vista. */}
+          <Suspense>
+            <EmpresaNoCelular />
+          </Suspense>
           <div className="vidro-cartao ml-auto hidden items-center gap-3 rounded-md border px-2.5 py-2 md:flex">
             <Busca />
             <Suspense fallback={<Avatar nome="" />}>
@@ -30,6 +34,12 @@ export default function GestorLayout({ children }: LayoutProps<"/gestor">) {
       {children}
     </PainelShell>
   );
+}
+
+async function EmpresaNoCelular() {
+  await connection();
+  const perfil = await perfilAtual();
+  return <span className="ml-auto truncate text-sm font-medium text-foreground md:hidden">{perfil?.empresa}</span>;
 }
 
 async function Gestor() {

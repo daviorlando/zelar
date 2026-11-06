@@ -54,8 +54,10 @@ function DialogoDeCadastro({
   descricao,
   acao,
   irPara,
+  aoAbrir,
   children,
 }: {
+  aoAbrir?: () => void;
   rotulo: string;
   editar?: boolean | "texto";
   titulo: string;
@@ -88,6 +90,7 @@ function DialogoDeCadastro({
         editar={editar}
         aoClicar={() => {
           setErro(undefined);
+          aoAbrir?.();
           setAberto(true);
         }}
       />
@@ -334,9 +337,12 @@ export function FormularioDeAtividade({
   atividade?: Atividade;
   frequencia?: string;
 }) {
-  const [tipo, setTipo] = useState<TipoDeItem>(atividade?.item_type ?? "inspection");
+  const tipoInicial = atividade?.item_type ?? "inspection";
+  const [tipo, setTipo] = useState<TipoDeItem>(tipoInicial);
   return (
     <DialogoDeCadastro
+      // Cada abertura começa do zero: o tipo da atividade anterior não pode passar para a próxima.
+      aoAbrir={() => setTipo(tipoInicial)}
       rotulo={atividade ? "Editar atividade" : "Nova atividade"}
       editar={!!atividade}
       titulo={atividade ? "Editar atividade" : "Nova atividade"}

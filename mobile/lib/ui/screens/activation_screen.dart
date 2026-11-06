@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
+import '../../data/orders_repo.dart';
+import '../../data/workers_repo.dart';
 import '../../state/device.dart';
+import '../../state/setup.dart';
 import '../logo.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -11,9 +15,7 @@ import '../widgets.dart';
 /// Primeiro uso do celular: o gestor gera um código no painel e alguém digita aqui.
 /// O código liga o aparelho à empresa, e o resto do app só abre depois disso.
 class ActivationScreen extends ConsumerStatefulWidget {
-  const ActivationScreen({super.key, required this.onDone});
-
-  final VoidCallback onDone;
+  const ActivationScreen({super.key});
 
   @override
   ConsumerState<ActivationScreen> createState() => _ActivationScreenState();
@@ -44,7 +46,12 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     final error = await ref.read(deviceProvider.notifier).activate(_code.text);
     if (!mounted) return;
     if (error == null) {
-      widget.onDone();
+      // Celular ligado: segue para a primeira inicialização, baixa a lista e envia o que ficou guardado.
+      await ref.read(setupProvider.notifier).load();
+      if (!mounted) return;
+      ref.read(workersProvider.notifier).refresh();
+      ref.read(ordersProvider.notifier).sync();
+      context.go(ref.read(setupProvider) ? '/primeira-vez' : '/');
       return;
     }
     final text = error == ActivationError.invalid ? Phrases.activationInvalid : Phrases.activationOffline;

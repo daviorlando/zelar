@@ -34,7 +34,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (_, _) => const EntryScreen()),
       GoRoute(
         path: '/ativar',
-        builder: (context, _) => ActivationScreen(onDone: () => _afterActivation(ref)),
+        builder: (_, _) => const ActivationScreen(),
       ),
       GoRoute(path: '/primeira-vez', builder: (_, _) => const SetupScreen()),
       GoRoute(path: '/hoje', builder: (_, _) => const TodayScreen()),
@@ -82,14 +82,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-
-/// Celular ligado: segue para a primeira inicialização, baixa a lista e envia o que ficou guardado.
-Future<void> _afterActivation(Ref ref) async {
-  await ref.read(setupProvider.notifier).load();
-  ref.read(routerProvider).go(ref.read(setupProvider) ? '/primeira-vez' : '/');
-  ref.read(workersProvider.notifier).refresh();
-  ref.read(ordersProvider.notifier).sync();
-}
 
 class ZeloApp extends ConsumerStatefulWidget {
   const ZeloApp({super.key});

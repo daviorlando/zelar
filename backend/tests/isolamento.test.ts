@@ -210,6 +210,69 @@ describe("funções", () => {
   });
 });
 
+describe("correções do teste com vários agentes", () => {
+  it("gestor desativado perde o acesso com o token ainda válido", async () => {
+    const c = await criarEmpresa("desativado");
+    expect((await (await rest("worker?select=id", c.token)).json()).length).toBeGreaterThan(0);
+    await db.query("update auth.users set banned_until = now() + interval '1 day' where id = $1", [c.userId]);
+    expect(await (await rest("worker?select=id", c.token)).json()).toEqual([]);
+  });
+
+  it("foto só aponta para a pasta da própria linha", async () => {
+    const r = await rest(`equipment?id=eq.${a.equipamento}`, a.token, { method: "PATCH", body: JSON.stringify({ photo_path: `${b.equipamento}/1.jpg` }) });
+    expect(r.ok).toBe(false);
+  });
+
+  it("gestor não lê nem troca o token do aparelho, nem cria código longo", async () => {
+    const { rows: [d] } = await db.query("insert into public.device (company_id, name, token_hash) values ($1, 'x', $2) returning id", [a.id, randomUUID()]);
+    expect((await rest("device?select=token_hash", a.token)).ok).toBe(false);
+    expect((await rest(`device?id=eq.${d.id}`, a.token, { method: "PATCH", body: JSON.stringify({ token_hash: "x" }) })).ok).toBe(false);
+    const longo = await rest("device_activation", a.token, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ code_hash: randomUUID(), name: "x", expires_at: "2099-01-01" }) });
+    expect(longo.ok).toBe(false);
+    await rest(`device?id=eq.${d.id}`, a.token, { method: "PATCH", body: JSON.stringify({ revoked_at: new Date().toISOString() }) });
+    const volta = await rest(`device?id=eq.${d.id}`, a.token, { method: "PATCH", body: JSON.stringify({ revoked_at: null }) });
+    expect(volta.ok).toBe(false);
+  });
+
+  it("anônimo não tem permissão em tabela nenhuma, e ninguém faz TRUNCATE", async () => {
+    const { rows } = await db.query(
+      `select table_name, grantee, privilege_type from information_schema.role_table_grants
+       where table_schema = 'public' and (grantee = 'anon' or (grantee = 'authenticated' and privilege_type = 'TRUNCATE'))`,
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it("operação ruim não derruba o lote, e reenvio repete a recusa", async () => {
+    const c = await criarEmpresa("lote");
+    const hora = new Date().toISOString();
+    const ruim = randomUUID();
+    const lote = [
+      { opId: ruim, type: "answer", itemId: c.item, result: "talvez", deviceTime: hora },
+      { opId: randomUUID(), type: "answer", itemId: "nao-e-uuid", result: "ok", deviceTime: hora },
+      { opId: randomUUID(), type: "answer", itemId: c.item, deviceTime: hora },
+      { opId: randomUUID(), type: "finish", orderId: c.ordem, deviceTime: hora },
+      { opId: randomUUID(), type: "answer", itemId: c.item, result: "ok", deviceTime: hora },
+    ];
+    const { rows } = await db.query("select * from public.sincronizar($1, $2)", [c.worker, JSON.stringify(lote)]);
+    expect(rows.map((l) => l.status)).toEqual(["rejected", "rejected", "rejected", "rejected", "accepted"]);
+    const { rows: de_novo } = await db.query("select * from public.sincronizar($1, $2)", [c.worker, JSON.stringify([lote[0]])]);
+    expect(de_novo[0].status).toBe("rejected");
+    expect(de_novo[0].motivo).toBe("dados inválidos");
+    const item = await db.query("select result from public.work_order_item where id = $1", [c.item]);
+    expect(item.rows[0].result).toBe("ok");
+  });
+
+  it("mesmo opId em duas empresas não colide", async () => {
+    const x = await criarEmpresa("opa");
+    const y = await criarEmpresa("opb");
+    const opId = randomUUID();
+    const op = (item: string) => JSON.stringify([{ opId, type: "answer", itemId: item, result: "ok", deviceTime: new Date().toISOString() }]);
+    const r1 = await db.query("select * from public.sincronizar($1, $2)", [x.worker, op(x.item)]);
+    const r2 = await db.query("select * from public.sincronizar($1, $2)", [y.worker, op(y.item)]);
+    expect([r1.rows[0].status, r2.rows[0].status]).toEqual(["accepted", "accepted"]);
+  });
+});
+
 describe("storage", () => {
   const enviar = (bucket: string, caminho: string, token: string) =>
     fetch(`${API}/storage/v1/object/${bucket}/${caminho}`, {

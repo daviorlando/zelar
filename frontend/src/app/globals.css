@@ -490,6 +490,11 @@
 }
 
 .badge-brand {
+  /* Nome de empresa longo não empurra o nome do funcionário para fora do cartão. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   font-size: 7pt;
   font-weight: 700;
   text-transform: uppercase;

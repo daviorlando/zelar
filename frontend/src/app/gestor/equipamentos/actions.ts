@@ -160,6 +160,7 @@ export async function excluirEquipamento(id: string): Promise<Resultado> {
   const { supabase, gestor } = await quemAltera();
   const { data: comps } = await supabase.from("equipment").select("id").eq("parent_id", id);
   const ids = [...(comps ?? []).map((c) => c.id), id];
+  const { data: fotos } = await supabase.from("equipment").select("photo_path").in("id", ids).not("photo_path", "is", null);
   const agora = new Date().toISOString();
 
   const retirar = await supabase
@@ -180,6 +181,9 @@ export async function excluirEquipamento(id: string): Promise<Resultado> {
     await supabase.from("equipment").update({ archived_at: agora, edited_at: agora }).eq("id", alvo);
     arquivado = true;
   }
+  // Arquivado continua no histórico, mas some das listas e do celular: a foto não tem mais uso.
+  const caminhos = (fotos ?? []).flatMap((f) => (f.photo_path ? [f.photo_path] : []));
+  if (caminhos.length) await supabase.storage.from(FOTO_DE_MAQUINA).remove(caminhos);
   revalidatePath("/gestor/equipamentos", "layout");
   return { ok: arquivado ? "Excluído. Como tinha histórico de ordens, ficou arquivado." : "Excluído." };
 }
@@ -277,15 +281,15 @@ export async function salvarAtividade(form: FormData): Promise<Resultado> {
 
 export async function excluirAtividade(id: string): Promise<Resultado> {
   const { supabase, gestor } = await quemAltera();
-  const { data: item, error } = await supabase
+  const { error } = await supabase
     .from("plan_item")
     .update({ status: "retired", reviewed_at: new Date().toISOString(), reviewed_by: gestor })
     .eq("id", id)
-    .select("equipment_id")
+    .select("id")
     .single();
   if (error) return { erro: `Não foi possível excluir: ${error.message}` };
   const aviso = await depoisDeMudarOPlano(supabase);
   if (aviso) return { erro: aviso };
-  if (item.equipment_id) await apagarAtividadesSemHistorico(supabase, [item.equipment_id]);
+  // A linha fica, retirada: é ela que impede a próxima importação da planilha de trazer a atividade de volta.
   return { ok: "Atividade excluída." };
 }

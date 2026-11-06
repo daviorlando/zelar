@@ -102,6 +102,8 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
                 ])
                   Expanded(
                     child: Row(
+                      // Tecla da altura da linha: sem vão morto para quem usa luva.
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (final k in row)
                           Expanded(

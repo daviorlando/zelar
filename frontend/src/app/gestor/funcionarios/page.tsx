@@ -291,7 +291,7 @@ function AcoesDaLinha({ w }: { w: Linha }) {
         })}
         message={
           w.active
-            ? `Desativar ${w.name}? O crachá e as figuras deixam de entrar.`
+            ? `Desativar ${w.name}? O crachá e o PIN deixam de entrar.`
             : `Reativar ${w.name}?`
         }
       >

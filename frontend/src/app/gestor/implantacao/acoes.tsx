@@ -115,7 +115,7 @@ function DialogoDeInicio({
         {previa.length > 0 && (
           <table className="w-full text-sm">
             <caption className="mb-1 text-left text-xs text-muted-foreground">
-              Serão criadas {total} ordens para os próximos 60 dias. As demais são geradas a cada dia.
+              Serão criadas {total} {total === 1 ? "ordem" : "ordens"} para os próximos 60 dias. As demais são geradas a cada dia.
             </caption>
             <thead>
               <tr className="text-left text-xs text-muted-foreground">

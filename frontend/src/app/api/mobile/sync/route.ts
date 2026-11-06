@@ -12,13 +12,13 @@ export async function POST(request: Request) {
   const aparelho = await autenticarAparelho(request);
   if (aparelho instanceof Response) return aparelho;
 
-  let corpo: { workerId?: unknown; ops?: unknown };
+  let corpo: { workerId?: unknown; ops?: unknown } | null;
   try {
     corpo = await request.json();
   } catch {
     return Response.json({ error: "corpo inválido" }, { status: 400 });
   }
-  if (!ehUuid(corpo.workerId)) return Response.json({ error: "funcionário inválido" }, { status: 400 });
+  if (!corpo || !ehUuid(corpo.workerId)) return Response.json({ error: "funcionário inválido" }, { status: 400 });
   if (!Array.isArray(corpo.ops) || corpo.ops.length === 0 || corpo.ops.length > MAX_OPS) {
     return Response.json({ error: `envie de 1 a ${MAX_OPS} operações` }, { status: 400 });
   }
@@ -35,7 +35,8 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.rpc("sincronizar", { funcionario: corpo.workerId, operacoes: corpo.ops });
   if (error) {
     const desativado = error.message.includes("funcionário");
-    return Response.json({ error: error.message }, { status: desativado ? 403 : 500 });
+    if (!desativado) console.error("sincronizar falhou:", error.message);
+    return Response.json({ error: desativado ? error.message : "falha ao gravar" }, { status: desativado ? 403 : 500 });
   }
   return Response.json({
     results: (data as { op_id: string; status: string; motivo: string | null }[]).map((r) => ({

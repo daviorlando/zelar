@@ -7,6 +7,7 @@ import { Card } from "@/components/zelo/card";
 import { Caixa } from "@/components/zelo/checkbox";
 import { Notice } from "@/components/zelo/feedback";
 import { Field, Input } from "@/components/zelo/input";
+import { reduzirImagem } from "@/lib/imagem";
 import { PIN_LENGTH } from "@/lib/pin";
 import type { OpcaoDeSetor } from "@/lib/setores";
 import { saveWorker, type SaveState } from "./actions";
@@ -30,7 +31,18 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
       onSubmit={(e) => {
         e.preventDefault();
         const dados = new FormData(e.currentTarget);
-        startTransition(() => action(dados));
+        startTransition(async () => {
+          // Foto de celular passa fácil do limite de envio: reduzida aqui, nunca chega a derrubar a página.
+          const foto = dados.get("photo");
+          if (foto instanceof File && foto.size > 0 && foto.type.startsWith("image/")) {
+            try {
+              dados.set("photo", await reduzirImagem(foto), "foto.jpg");
+            } catch {
+              // Imagem que o navegador não abre: segue a original, e o servidor confere o tamanho.
+            }
+          }
+          action(dados);
+        });
       }} className="grid items-start gap-4 lg:grid-cols-[260px_1fr]">
       {worker && <input type="hidden" name="id" value={worker.id} />}
       {meusSetores.map((s) => (

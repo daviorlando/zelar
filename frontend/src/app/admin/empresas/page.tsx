@@ -38,7 +38,7 @@ async function Lista() {
   ]);
   if (empresas.error) return <Notice tone="error">Não consegui carregar: {empresas.error.message}</Notice>;
   if (empresas.data.length === 0) return <Empty>Nenhuma empresa ainda.</Empty>;
-  const emailDe = new Map((contas.data?.users ?? []).map((u) => [u.id, { email: u.email ?? "", entrou: !!u.last_sign_in_at }]));
+  const emailDe = new Map((contas.data?.users ?? []).map((u) => [u.id, { email: u.email ?? "", pendente: !!u.app_metadata?.trocar_senha }]));
 
   return (
     <div className="flex flex-col gap-3">
@@ -62,7 +62,7 @@ async function Lista() {
                 {gestores.map((g) => (
                   <li key={g.email} className="flex flex-wrap items-center justify-between gap-2">
                     <span className="break-all text-foreground">
-                      {g.email} {!g.entrou && <span className="text-muted-foreground">· ainda não entrou</span>}
+                      {g.email} {g.pendente && <span className="text-muted-foreground">· ainda não criou a senha</span>}
                     </span>
                     <ReenviarAcesso email={g.email} />
                   </li>

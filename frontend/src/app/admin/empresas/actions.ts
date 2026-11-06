@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { convidarGestor, emailValido } from "@/lib/convite";
+import { AGUARDE, convidarGestor, emailValido } from "@/lib/convite";
 import { exigirSuperAdmin, urlDoSite } from "@/lib/empresa";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -39,6 +39,8 @@ export async function convidarOutroGestor(empresaId: string, form: FormData): Pr
   if (!(await exigirSuperAdmin())) return { erro: "Sem permissão." };
   const gestor = dadosDoGestor(form);
   if ("erro" in gestor) return gestor;
+  const { data: empresa } = await supabaseAdmin().from("company").select("active").eq("id", empresaId).maybeSingle();
+  if (!empresa?.active) return { erro: "Esta empresa está desativada. Reative antes de convidar." };
   const convite = await convidarGestor(empresaId, gestor.nome, gestor.email);
   if (convite.erro) return convite;
   revalidatePath("/admin/empresas");
@@ -49,7 +51,7 @@ export async function convidarOutroGestor(empresaId: string, form: FormData): Pr
 export async function reenviarAcesso(email: string): Promise<Resultado> {
   if (!(await exigirSuperAdmin())) return { erro: "Sem permissão." };
   const { error } = await supabaseAdmin().auth.resetPasswordForEmail(email, { redirectTo: urlDoSite("/auth/confirm") });
-  if (error) return { erro: `Não foi possível enviar: ${error.message}` };
+  if (error) return { erro: error.status === 429 ? AGUARDE : `Não foi possível enviar: ${error.message}` };
   return { ok: `Link enviado para ${email}.` };
 }
 

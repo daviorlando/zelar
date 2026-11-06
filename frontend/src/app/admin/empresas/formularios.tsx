@@ -47,15 +47,15 @@ function DialogoDeConvite({
             <DialogDescription>{descricao}</DialogDescription>
           </DialogHeader>
           {comEmpresa && (
-            <Field label="Nome da empresa" htmlFor="empresa">
-              <Input id="empresa" name="empresa" required maxLength={120} autoFocus />
+            <Field label="Nome da empresa" htmlFor="nova-empresa">
+              <Input id="nova-empresa" name="empresa" required maxLength={120} autoFocus />
             </Field>
           )}
-          <Field label="Nome do gestor" htmlFor="nome">
-            <Input id="nome" name="nome" required maxLength={120} autoFocus={!comEmpresa} />
+          <Field label="Nome do gestor" htmlFor="convite-nome">
+            <Input id="convite-nome" name="nome" required maxLength={120} autoFocus={!comEmpresa} />
           </Field>
-          <Field label="E-mail do gestor" htmlFor="email">
-            <Input id="email" name="email" type="email" required maxLength={200} />
+          <Field label="E-mail do gestor" htmlFor="convite-email">
+            <Input id="convite-email" name="email" type="email" required maxLength={200} />
           </Field>
           {erro && (
             <p role="alert" className="text-sm text-destructive">

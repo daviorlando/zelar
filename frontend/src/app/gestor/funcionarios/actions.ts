@@ -47,8 +47,11 @@ export async function saveWorker(_: SaveState, formData: FormData): Promise<Save
     const path = `${saved.data.id}/${Date.now()}`;
     const upload = await supabase.storage.from(PHOTO_BUCKET).upload(path, photo, { contentType: photo.type });
     if (upload.error) return { error: `Cadastro salvo, mas a foto falhou: ${upload.error.message}` };
+    const { data: antes } = await supabase.from("worker").select("photo_path").eq("id", saved.data.id).single();
     const linked = await supabase.from("worker").update({ photo_path: path }).eq("id", saved.data.id);
     if (linked.error) return { error: `Cadastro salvo, mas a foto falhou: ${linked.error.message}` };
+    // Foto de rosto é dado pessoal: a antiga não fica guardada.
+    if (antes?.photo_path) await supabase.storage.from(PHOTO_BUCKET).remove([antes.photo_path]);
   }
 
   revalidatePath("/gestor/funcionarios");

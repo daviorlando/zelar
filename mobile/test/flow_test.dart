@@ -1,13 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zelo/app.dart';
 import 'package:zelo/audio/phrases.dart';
 import 'package:zelo/audio/speaker.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:zelo/data/fixtures.dart';
 import 'package:zelo/data/orders_repo.dart';
 import 'package:zelo/data/workers_repo.dart';
 import 'package:zelo/domain/models.dart';
+import 'package:zelo/state/device.dart';
 import 'package:zelo/state/session.dart';
 import 'package:zelo/state/setup.dart';
 import 'package:zelo/ui/widgets.dart';
@@ -707,6 +711,31 @@ void main() {
     expect(problemsByKind[ComponentKind.vibrator]!.map((r) => r.$1), isNot(contains('oil_leak')));
   });
 
+  testWidgets('sem código abre a tela de ligar; código certo segue sem travar', (tester) async {
+    WorkersRepo.override = (api: 'http://painel.test', key: '');
+    addTearDown(() {
+      WorkersRepo.override = null;
+      WorkersRepo.deviceToken = null;
+      DeviceNotifier.store = SecureTokenStore();
+    });
+    final guardado = _TokenNaMemoria();
+    DeviceNotifier.store = guardado;
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final device = c.read(deviceProvider.notifier);
+    await device.load();
+    expect(c.read(deviceProvider), isTrue);
+    final ok = await device.activate('abcd2345', client: MockClient((_) async => http.Response(jsonEncode({'token': 'novo', 'company': 'X'}), 200)));
+    expect(ok, isNull);
+    expect(guardado.valor, 'novo');
+    expect(WorkersRepo.headers['x-device-token'], 'novo');
+    expect(c.read(deviceProvider), isFalse);
+    final errado = await device.activate('errado00', client: MockClient((_) async => http.Response('{}', 400)));
+    expect(errado, ActivationError.invalid);
+    device.refused();
+    expect(c.read(deviceProvider), isTrue);
+  });
+
   test('PIN confere pelo hash, igual ao do painel, e bloqueio é por funcionário', () {
     // Mesmo valor de frontend/src/lib/workers.ts: se um lado mudar, ninguém entra sem crachá.
     expect(pinHashOf('w1', demoPin), demoWorker.pinHash);
@@ -748,4 +777,14 @@ void main() {
     final i6 = orderById('o1').items.firstWhere((i) => i.id == 'i6');
     expect(blockReasonsFor(i6).map((r) => r.$1), isNot(contains('running')));
   });
+}
+
+class _TokenNaMemoria implements TokenStore {
+  String? valor;
+
+  @override
+  Future<String?> read() async => valor;
+
+  @override
+  Future<void> write(String token) async => valor = token;
 }

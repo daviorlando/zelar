@@ -83,7 +83,7 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
   const coluna = COLUNAS.find((c) => c.id === ordem.status);
   const prazo = prazoRelativo(ordem.due_date, hojeNaUnidade());
   const pulados = itens.filter((i) => i.result === "skipped").length;
-  const respondidos = itens.filter((i) => i.result && i.result !== "skipped").length;
+  const respondidos = itens.filter((i) => i.result && i.result !== "skipped" && i.result !== "blocked").length;
   const quem = [...new Set(itens.flatMap((i) => (i.worker ? [i.worker.name] : [])))];
 
   return (
@@ -144,7 +144,7 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
 
         {pulados > 0 && (
           <p className="rounded-sm border border-warning bg-warning-soft px-3 py-2 text-sm text-warning">
-            {pulados === 1 ? "1 item ficou" : `${pulados} itens ficaram`} sem resposta: o funcionário não soube responder. Valide assim mesmo ou devolva depois de explicar.
+            {pulados === 1 ? "1 item ficou" : `${pulados} itens ficaram`} sem resposta: o funcionário não soube responder.{ordem.status === "awaiting_validation" && " Valide assim mesmo ou devolva depois de explicar."}
           </p>
         )}
 

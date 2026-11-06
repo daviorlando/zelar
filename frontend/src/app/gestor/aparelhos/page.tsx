@@ -46,7 +46,6 @@ async function Lista() {
           <thead>
             <tr>
               <TH>Nome</TH>
-              <TH>Último contato</TH>
               <TH>Situação</TH>
               <TH>
                 <span className="sr-only">Ações</span>
@@ -56,8 +55,13 @@ async function Lista() {
           <tbody>
             {data.map((d) => (
               <TR key={d.id}>
-                <TD className="font-medium text-foreground">{d.name}</TD>
-                <TD>{d.last_seen_at ? quando.format(new Date(d.last_seen_at)) : "nunca"}</TD>
+                <TD className="font-medium text-foreground">
+                  {d.name}
+                  {/* Debaixo do nome: como coluna, empurrava o Revogar para fora da tela do celular. */}
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    Último contato: {d.last_seen_at ? quando.format(new Date(d.last_seen_at)) : "nunca"}
+                  </span>
+                </TD>
                 <TD>{d.revoked_at ? <Badge tone="danger">Revogado</Badge> : <Badge tone="ok">Ativo</Badge>}</TD>
                 <TD>{!d.revoked_at && <RevogarAparelho id={d.id} nome={d.name} />}</TD>
               </TR>

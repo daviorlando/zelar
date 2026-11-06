@@ -40,6 +40,8 @@ export async function autenticarAparelho(request: Request): Promise<Aparelho | R
   const empresa = process.env.ZELO_LEGACY_COMPANY_ID;
   const recebida = request.headers.get("x-device-key") ?? "";
   if (!chave || !empresa || !sameSecret(recebida, chave)) return naoAutorizado();
+  const { data: ativa } = await supabaseAdmin().from("company").select("active").eq("id", empresa).maybeSingle();
+  if (!ativa?.active) return naoAutorizado();
   return { companyId: empresa, deviceId: null, legado: true };
 }
 

@@ -69,9 +69,11 @@ export async function devolver(id: string, motivo: string): Promise<Resultado> {
     .update({ status: "open", returned_reason: texto, validated_at: null, validated_by: null, finished_at: null })
     .eq("id", id)
     .in("status", ["awaiting_validation", "done"])
+    // Revisão diária saiu do plano: ordem antiga não volta para o celular.
+    .neq("frequency", "daily")
     .select("id");
   if (error) return { erro: error.message };
-  if (!data?.length) return { erro: "Só dá para devolver o que foi concluído pelo funcionário." };
+  if (!data?.length) return { erro: "Só dá para devolver o que foi concluído pelo funcionário, e revisão diária não volta mais." };
   // Situação de novo pelas respostas: em execução, impedida ou a fazer.
   await supabase.rpc("recalcular_ordem", { ordem: id });
   await registrar(supabase, quem, "devolver", id, texto);

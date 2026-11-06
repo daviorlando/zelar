@@ -307,7 +307,10 @@ class _FrequencyTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: ZeloColors.ink.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
-      child: Text(capitalize(frequency.spoken), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(capitalize(frequency.spoken), maxLines: 1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      ),
     );
   }
 }
