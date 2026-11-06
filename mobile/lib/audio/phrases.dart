@@ -20,7 +20,8 @@ abstract final class Phrases {
   static const undoButton = 'Desfazer: volta para a resposta anterior.';
   static const photoButton = 'Botão roxo, com a câmera: toque para tirar uma foto.';
   static const micButton = 'Botão laranja, com o microfone: segure enquanto fala. Solte para terminar.';
-  static const eraseFigure = 'Seta: apaga a última figura.';
+  static const eraseDigit = 'Seta: apaga o último número.';
+  static const skipButton = 'Botão cinza: não sei responder. Pula este item, e o gestor fica sabendo.';
 
   // Botões desativados: por que ainda não funcionam.
   static const chooseFigureFirst = 'Primeiro toque numa figura.';
@@ -33,12 +34,16 @@ abstract final class Phrases {
   static const entry = 'Para entrar, toque no botão roxo e mostre o seu crachá para a câmera. '
       'Se não estiver com o crachá, toque na sua foto.';
   static String pinFor(String name) =>
-      '$name. Agora toque suas quatro figuras, uma de cada vez. Se errar, toque na seta embaixo para apagar.';
-  static const pinWrong = 'Figuras erradas. Tente de novo.';
-  static const locked = 'Figuras bloqueadas. Entre com o crachá, no botão roxo, ou chame o gestor.';
+      '$name. Agora digite os seus quatro números, um de cada vez. Se errar, toque na seta embaixo para apagar.';
+  static const pinWrong = 'Número errado. Tente de novo.';
+  static const locked = 'Número bloqueado por alguns minutos. Entre com o crachá, no botão roxo, ou chame o gestor.';
   static const badgeButton = 'Botão roxo: ler o seu crachá com a câmera.';
   static const badgeUnknown = 'Crachá não reconhecido. Chame o gestor.';
   static const otherPerson = 'Voltar: escolher outra foto.';
+  static const activation = 'Para ligar este celular, peça o código ao gestor e digite aqui. Depois toque no botão verde, Ligar.';
+  static const activationButton = 'Botão verde: ligar este celular com o código digitado.';
+  static const activationInvalid = 'Código errado ou vencido. Peça um novo ao gestor.';
+  static const activationOffline = 'Sem internet. Conecte o celular e tente de novo.';
   static const noWorkers = 'A lista de funcionários ainda não foi baixada. Chame o gestor.';
   static const allDone = 'Tudo feito por hoje. Obrigado.';
 
@@ -48,6 +53,7 @@ abstract final class Phrases {
       'Toque no botão azul, Abrir configurações. Toque na engrenagem do serviço de voz, depois em Instalar dados de voz, e baixe Português do Brasil. Depois, volte para o Zelo.';
   static const setupHowItWorks = 'Veja como funciona. Para entrar, leia o crachá ou toque na sua foto. '
       'O botão verde quer dizer que está tudo certo. O amarelo, que você encontrou um problema. O azul, que não conseguiu fazer. '
+      'O cinza, que você não sabe responder. '
       'Se tiver dúvida, segure um botão para ouvir o que ele faz. Toque no botão verde, Próximo.';
   static const setupDone = 'Tudo pronto. Toque no botão verde, Começar.';
   static const setupNextButton = 'Botão verde: ir para o próximo passo.';
@@ -88,12 +94,15 @@ abstract final class Phrases {
         ItemType.inspection => '${item.spokenText} '
             'Se estiver tudo certo, toque no botão verde. '
             'Se encontrou problema, toque no botão amarelo. '
-            'Se não conseguiu fazer, toque no botão azul.',
+            'Se não conseguiu fazer, toque no botão azul. '
+            'Se não souber responder, toque no botão cinza, Não sei.',
         ItemType.action => '${item.spokenText} '
-            'Quando terminar, toque no botão verde. Se não conseguiu, toque no botão azul.',
+            'Quando terminar, toque no botão verde. Se não conseguiu, toque no botão azul. '
+            'Se não souber responder, toque no botão cinza, Não sei.',
         ItemType.measurement => '${item.spokenText} '
             'Digite o número nas teclas. A vírgula fica embaixo à esquerda; a seta de apagar, embaixo à direita. '
-            'Depois toque no botão verde, Confirmar. Se não conseguiu medir, toque no botão azul, Preciso de ajuda.',
+            'Depois toque no botão verde, Confirmar. Se não conseguiu medir, toque no botão azul, Preciso de ajuda. '
+            'Se não souber responder, toque no botão cinza, Não sei.',
       };
 
   static String problem(String component) =>

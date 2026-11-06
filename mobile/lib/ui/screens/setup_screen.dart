@@ -138,6 +138,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         const _Explain(icon: Icons.check_circle, color: ZeloColors.ok, text: 'Verde: está tudo certo.'),
         const _Explain(icon: Icons.warning, color: ZeloColors.problem, text: 'Amarelo: encontrei um problema.'),
         const _Explain(icon: Icons.block, color: ZeloColors.blocked, text: 'Azul: não consegui fazer.'),
+        const _Explain(icon: Icons.help, color: ZeloColors.skip, text: 'Cinza: não sei responder.'),
         const _Explain(icon: Icons.touch_app, color: ZeloColors.ink, text: 'Segure um botão para ouvir o que ele faz.'),
       ];
 

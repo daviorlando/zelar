@@ -11,11 +11,12 @@ import '../widgets.dart';
 /// (só quando o plano tem limites).
 /// Valor fora da faixa gera aviso falado, nunca bloqueio (escopo, seção 5).
 class MeasurementPanel extends ConsumerStatefulWidget {
-  const MeasurementPanel({super.key, required this.measurement, required this.onConfirm, required this.onHelp});
+  const MeasurementPanel({super.key, required this.measurement, required this.onConfirm, required this.onHelp, required this.onSkip});
 
   final Measurement measurement;
   final void Function(double value, bool outOfRange) onConfirm;
   final VoidCallback onHelp;
+  final VoidCallback onSkip;
 
   @override
   ConsumerState<MeasurementPanel> createState() => _MeasurementPanelState();
@@ -127,26 +128,43 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
             ),
           ),
           const SizedBox(height: 8),
+          // Três na mesma linha: uma linha a mais tiraria as teclas de um celular pequeno.
           Row(
             children: [
               Expanded(
+                flex: 4,
                 child: BigActionButton(
                   key: const Key('measure-help'),
                   label: 'Preciso de ajuda',
                   icon: Icons.support_agent,
-                  compact: true,
+                  stacked: true,
                   color: ZeloColors.blocked,
                   spokenHelp: Phrases.helpButton,
                   onPressed: widget.onHelp,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
+                flex: 4,
+                child: BigActionButton(
+                  key: const Key('answer-skip'),
+                  label: 'Não sei',
+                  icon: Icons.help,
+                  stacked: true,
+                  color: ZeloColors.skip,
+                  spokenHelp: Phrases.skipButton,
+                  onPressed: widget.onSkip,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                flex: 8,
                 child: BigActionButton(
                   key: const Key('measure-confirm'),
                   label: 'Confirmar',
                   icon: Icons.check_circle,
                   compact: true,
+                  oneLine: true,
                   color: ZeloColors.ok,
                   spokenHelp: Phrases.confirmButton,
                   disabledHint: Phrases.typeNumberFirst,

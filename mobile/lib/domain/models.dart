@@ -1,10 +1,14 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 
 /// Tipos de item de plano (escopo, seção 6).
 enum ItemType { inspection, action, measurement }
 
 /// Resultado de um item. `help` = medição sem valor, pediu ajuda.
-enum Outcome { ok, problem, blocked, done, measured, help }
+/// `skipped` = o funcionário não soube responder: a ordem conclui e o gestor decide.
+enum Outcome { ok, problem, blocked, done, measured, help, skipped }
 
 /// Estados de sincronização visíveis ao trabalhador (escopo, seção 8.3).
 enum SyncState { savedLocal, sending, received, attention }
@@ -23,7 +27,7 @@ enum Frequency {
   /// Como a voz fala a frequência.
   final String spoken;
 
-  static Frequency parse(String? v) => Frequency.values.firstWhere((f) => f.name == v, orElse: () => Frequency.daily);
+  static Frequency parse(String? v) => Frequency.values.firstWhere((f) => f.name == v, orElse: () => Frequency.weekly);
 }
 
 class Measurement {
@@ -111,6 +115,8 @@ class Equipment {
     required this.icon,
     required this.color,
     required this.components,
+    this.photoFile,
+    this.details,
   });
 
   final String id;
@@ -122,6 +128,12 @@ class Equipment {
   final Color color;
   final List<Component> components;
 
+  /// Foto cadastrada pelo gestor, guardada no celular. Nula ou ainda não baixada: fica o ícone.
+  final String? photoFile;
+
+  /// "WEG W22 · 5 CV · 1750 RPM", para ajudar a reconhecer a máquina.
+  final String? details;
+
   Component component(String id) => components.firstWhere((c) => c.id == id);
 }
 
@@ -130,7 +142,7 @@ class WorkOrder {
     required this.id,
     required this.equipment,
     required this.items,
-    this.frequency = Frequency.daily,
+    this.frequency = Frequency.weekly,
     this.periodStart,
     this.dueDate,
     this.returnedReason,
@@ -170,10 +182,22 @@ class WorkOrder {
   String get spokenName => frequency == Frequency.daily ? equipment.shortName : '${equipment.shortName}, ${frequency.spoken}';
 }
 
-/// Hoje, sem hora, no relógio do celular.
+/// Diferença em dias entre o painel e o relógio do celular, medida no último download.
+/// Celular com a data errada não pode esconder nem atrasar tarefa.
+var _serverDayOffset = 0;
+
+/// Guarda o "hoje" do painel. Sem internet, vale a última diferença medida.
+void setServerToday(String? serverToday) {
+  final server = DateTime.tryParse(serverToday ?? '');
+  if (server == null) return;
+  final n = DateTime.now();
+  _serverDayOffset = DateTime.utc(server.year, server.month, server.day).difference(DateTime.utc(n.year, n.month, n.day)).inDays;
+}
+
+/// Hoje, sem hora, pelo painel quando já se conectou; senão, pelo relógio do celular.
 DateTime today() {
   final n = DateTime.now();
-  return DateTime(n.year, n.month, n.day);
+  return DateTime(n.year, n.month, n.day + _serverDayOffset);
 }
 
 class Answer {
@@ -201,14 +225,23 @@ class Answer {
   /// "Não consegui" ou "preciso de ajuda": a verificação fica pendente, esperando o gestor.
   bool get isBlocked => outcome == Outcome.blocked || outcome == Outcome.help;
 
+  /// "Não soube responder": tem resposta, mas não conta como feito.
+  bool get isSkipped => outcome == Outcome.skipped;
+
   static const outOfRange = 'out_of_range';
 }
+
+/// Quantos números tem o PIN.
+const pinLength = 4;
+
+/// O mesmo hash do painel (frontend/src/lib/workers.ts): o id do funcionário faz o papel de sal.
+String pinHashOf(String workerId, List<int> pin) => sha256.convert(utf8.encode('zelo:pin:$workerId:${pin.join()}')).toString();
 
 class Worker {
   const Worker({
     required this.id,
     required this.name,
-    required this.pin,
+    required this.pinHash,
     required this.badgeHash,
     this.photoPath,
     this.active = true,
@@ -217,8 +250,8 @@ class Worker {
   final String id;
   final String name;
 
-  /// Índices das figuras na grade de nove (escopo, seção 4): entrada sem crachá.
-  final List<int> pin;
+  /// Hash do PIN de números, para entrar sem crachá e sem internet. O celular não guarda o PIN.
+  final String pinHash;
 
   /// SHA-256 (hex) do código do crachá. O celular nunca guarda o código em si.
   final String badgeHash;
@@ -230,7 +263,8 @@ class Worker {
   factory Worker.fromJson(Map<String, dynamic> j) => Worker(
         id: j['id'] as String,
         name: j['name'] as String,
-        pin: [for (final n in j['pin'] as List) (n as num).toInt()],
+        // Lista guardada pelo app antigo ainda traz o PIN: vira hash ao ler, até a próxima atualização.
+        pinHash: j['pinHash'] as String? ?? pinHashOf(j['id'] as String, [for (final n in j['pin'] as List) (n as num).toInt()]),
         badgeHash: j['badgeHash'] as String,
         photoPath: j['localPhoto'] as String?,
         active: j['active'] as bool? ?? true,

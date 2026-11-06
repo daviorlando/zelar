@@ -127,6 +127,12 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
     OrderFlow.goNext(context, order, widget.index, ref.read(sessionProvider).answersFor(order.id));
   }
 
+  void _skip() {
+    ref.read(sessionProvider.notifier).answer(order.id, Answer(itemId: item.id, outcome: Outcome.skipped, at: DateTime.now()));
+    ref.read(eventLogProvider.notifier).add('resposta', '${item.id}: skipped');
+    OrderFlow.goNext(context, order, widget.index, ref.read(sessionProvider).answersFor(order.id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = widget.kind == ReasonKind.problem ? ZeloColors.problem : ZeloColors.blocked;
@@ -227,14 +233,36 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
           ),
         ],
       ),
-      bottom: BigActionButton(
-        key: const Key('reason-done'),
-        label: 'Pronto',
-        icon: Icons.check_circle,
-        color: ZeloColors.ok,
-        spokenHelp: Phrases.readyButton,
-        disabledHint: _reason == null ? Phrases.chooseFigureFirst : Phrases.recordOtherFirst,
-        onPressed: _canFinish ? _finish : null,
+      // "Não sei" é a saída de quem abriu esta tela e não sabe dizer o motivo.
+      bottom: Row(
+        children: [
+          Expanded(
+            child: BigActionButton(
+              key: const Key('reason-skip'),
+              label: 'Não sei',
+              icon: Icons.help,
+              compact: true,
+              oneLine: true,
+              color: ZeloColors.skip,
+              spokenHelp: Phrases.skipButton,
+              onPressed: _skip,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: BigActionButton(
+              key: const Key('reason-done'),
+              label: 'Pronto',
+              icon: Icons.check_circle,
+              compact: true,
+              oneLine: true,
+              color: ZeloColors.ok,
+              spokenHelp: Phrases.readyButton,
+              disabledHint: _reason == null ? Phrases.chooseFigureFirst : Phrases.recordOtherFirst,
+              onPressed: _canFinish ? _finish : null,
+            ),
+          ),
+        ],
       ),
     );
   }

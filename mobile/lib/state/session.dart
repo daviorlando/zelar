@@ -1,18 +1,27 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../data/workers_repo.dart';
 import '../domain/models.dart';
 import 'outbox.dart';
 
-/// Bloqueio do PIN visual após cinco erros (critério de aceite 19).
+/// Bloqueio do PIN após cinco erros (critério de aceite 19). Por funcionário: errar o PIN de
+/// um não tranca os colegas no mesmo celular.
 const maxPinAttempts = 5;
+
+/// O crachá continua entrando durante o bloqueio.
+const pinLockFor = Duration(minutes: 15);
 
 class SessionState {
   const SessionState({
     this.worker,
-    this.failedAttempts = 0,
+    this.pinFails = const {},
+    this.lockedUntil = const {},
     this.answers = const {},
     this.finished = const {},
     this.changed = const {},
@@ -20,7 +29,10 @@ class SessionState {
   });
 
   final Worker? worker;
-  final int failedAttempts;
+
+  /// Erros seguidos e fim do bloqueio, por funcionário. Sobrevivem a sair e a reiniciar o app.
+  final Map<String, int> pinFails;
+  final Map<String, DateTime> lockedUntil;
 
   /// orderId -> itemId -> resposta.
   final Map<String, Map<String, Answer>> answers;
@@ -32,14 +44,15 @@ class SessionState {
   final Set<String> changed;
   final SyncState sync;
 
-  bool get locked => failedAttempts >= maxPinAttempts;
+  bool lockedFor(String workerId) => lockedUntil[workerId]?.isAfter(DateTime.now()) ?? false;
 
   Map<String, Answer> answersFor(String orderId) => answers[orderId] ?? const {};
 
   SessionState copyWith({
     Worker? worker,
     bool clearWorker = false,
-    int? failedAttempts,
+    Map<String, int>? pinFails,
+    Map<String, DateTime>? lockedUntil,
     Map<String, Map<String, Answer>>? answers,
     Set<String>? finished,
     Set<String>? changed,
@@ -47,7 +60,8 @@ class SessionState {
   }) {
     return SessionState(
       worker: clearWorker ? null : (worker ?? this.worker),
-      failedAttempts: failedAttempts ?? this.failedAttempts,
+      pinFails: pinFails ?? this.pinFails,
+      lockedUntil: lockedUntil ?? this.lockedUntil,
       answers: answers ?? this.answers,
       finished: finished ?? this.finished,
       changed: changed ?? this.changed,
@@ -60,18 +74,66 @@ class SessionNotifier extends Notifier<SessionState> {
   @override
   SessionState build() => const SessionState();
 
-  /// Confere as figuras de quem tocou a própria foto. Devolve true quando entra.
+  /// Onde o bloqueio fica guardado. Testes não têm essa pasta: sem arquivo, vale só na memória.
+  static Future<Directory> Function() directory = getApplicationDocumentsDirectory;
+
+  Future<File> _locksFile() async => File('${(await directory()).path}/bloqueio_pin.json');
+
+  /// Ao abrir o app. Reiniciar o celular não pode zerar as tentativas.
+  Future<void> loadPinLocks() async {
+    if (!WorkersRepo.configured) return;
+    try {
+      final file = await _locksFile();
+      if (!await file.exists()) return;
+      final saved = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      state = state.copyWith(
+        pinFails: (saved['fails'] as Map<String, dynamic>).map((k, v) => MapEntry(k, v as int)),
+        lockedUntil: (saved['until'] as Map<String, dynamic>).map((k, v) => MapEntry(k, DateTime.parse(v as String))),
+      );
+    } catch (e) {
+      debugPrint('bloqueio do PIN ilegível: $e');
+    }
+  }
+
+  Future<void> _saveLocks() async {
+    if (!WorkersRepo.configured) return;
+    try {
+      await (await _locksFile()).writeAsString(jsonEncode({
+        'fails': state.pinFails,
+        'until': state.lockedUntil.map((k, v) => MapEntry(k, v.toIso8601String())),
+      }));
+    } catch (e) {
+      debugPrint('não guardou o bloqueio do PIN: $e');
+    }
+  }
+
+  /// Confere o PIN de quem tocou a própria foto. Devolve true quando entra.
   bool tryPin(Worker worker, List<int> pin) {
-    if (state.locked || !worker.active) return false;
-    final ok = pin.length == worker.pin.length && List.generate(pin.length, (i) => pin[i] == worker.pin[i]).every((m) => m);
-    state = ok
-        ? state.copyWith(worker: worker, failedAttempts: 0)
-        : state.copyWith(failedAttempts: state.failedAttempts + 1);
+    if (state.lockedFor(worker.id) || !worker.active) return false;
+    final ok = pinHashOf(worker.id, pin) == worker.pinHash;
+    final fails = {...state.pinFails};
+    final until = {...state.lockedUntil};
+    if (ok) {
+      fails.remove(worker.id);
+      until.remove(worker.id);
+      state = state.copyWith(worker: worker, pinFails: fails, lockedUntil: until);
+    } else {
+      // O bloqueio anterior já venceu (senão nem chegaria aqui): a contagem recomeça.
+      final count = (until.containsKey(worker.id) ? 0 : fails[worker.id] ?? 0) + 1;
+      until.remove(worker.id);
+      fails[worker.id] = count;
+      if (count >= maxPinAttempts) {
+        until[worker.id] = DateTime.now().add(pinLockFor);
+        fails.remove(worker.id);
+      }
+      state = state.copyWith(pinFails: fails, lockedUntil: until);
+    }
+    unawaited(_saveLocks());
     return ok;
   }
 
   /// Crachá entra direto (decisão do solicitante). Código aleatório de 256 bits não se
-  /// adivinha, então crachá errado não conta para o bloqueio das figuras.
+  /// adivinha, então crachá errado não conta para o bloqueio do PIN.
   /// Crachá antigo (trocado no painel) ou de funcionário desativado não entra.
   Worker? tryBadge(String qr) {
     final hash = badgeHashOf(qr);
@@ -83,7 +145,8 @@ class SessionNotifier extends Notifier<SessionState> {
 
   /// Sai e não deixa respostas na tela de quem entrar depois. O que ainda não foi
   /// enviado continua na fila do celular, em nome de quem respondeu.
-  void logout() => state = const SessionState();
+  /// O bloqueio do PIN fica: sair e entrar de novo não dá mais tentativas.
+  void logout() => state = SessionState(pinFails: state.pinFails, lockedUntil: state.lockedUntil);
 
   /// Com painel configurado, cada mudança vira operação na fila de envio.
   OutboxNotifier? get _outbox => WorkersRepo.configured && state.worker != null ? ref.read(outboxProvider.notifier) : null;
@@ -177,7 +240,10 @@ class SessionNotifier extends Notifier<SessionState> {
   void setSync(SyncState sync) => state = state.copyWith(sync: sync);
 
   /// Facilitador: zera respostas e bloqueio para o próximo participante.
-  void reset() => state = const SessionState();
+  void reset() {
+    state = const SessionState();
+    unawaited(_saveLocks());
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(SessionNotifier.new);

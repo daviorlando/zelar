@@ -64,7 +64,11 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
       body: Column(
         children: [
           if (order.released || order.returned) ...[ReturnedBanner.of(order), const SizedBox(height: 12)],
-          Expanded(child: EquipmentPicture(icon: eq.icon, color: eq.color, label: eq.shortName)),
+          Expanded(child: EquipmentPicture(icon: eq.icon, color: eq.color, label: eq.shortName, photoFile: eq.photoFile)),
+          if (eq.details != null) ...[
+            const SizedBox(height: 8),
+            Text(eq.details!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          ],
           const SizedBox(height: 16),
           AudioButton(text: _prompt),
         ],

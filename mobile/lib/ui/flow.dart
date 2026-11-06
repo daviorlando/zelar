@@ -18,8 +18,11 @@ abstract final class OrderFlow {
   }
 
   /// Primeiro item sem resposta, ou a tela de finalizar quando todos foram respondidos.
+  /// Em ordem devolvida ou liberada, o que ele não soube volta primeiro: o gestor pode ter explicado.
+  /// Pular de novo segue adiante (goNext só procura quem não tem resposta), sem ficar em círculo.
   static void goFirstPending(BuildContext context, WorkOrder order, Map<String, Answer> answers) {
-    final index = order.items.indexWhere((i) => !answers.containsKey(i.id));
+    final review = order.returned || order.released;
+    final index = order.items.indexWhere((i) => !answers.containsKey(i.id) || (review && answers[i.id]!.isSkipped));
     context.go(index < 0 ? '/ordem/${order.id}/finalizar' : item(order.id, index));
   }
 }

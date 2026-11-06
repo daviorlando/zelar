@@ -10,6 +10,7 @@ import 'package:zelo/data/workers_repo.dart';
 import 'package:zelo/domain/models.dart';
 import 'package:zelo/state/session.dart';
 import 'package:zelo/state/setup.dart';
+import 'package:zelo/ui/widgets.dart';
 
 const phones = {'comum 412x915': Size(412, 915), 'pequeno 360x640': Size(360, 640)};
 
@@ -101,7 +102,7 @@ class ComecaCarregando extends OrdersLoadNotifier {
 /// O indicador de carregando gira sem parar: aqui não dá para esperar a tela assentar.
 Future<void> entrarComListaCarregando(WidgetTester tester) async {
   await tapKey(tester, 'worker-${demoWorker.id}');
-  for (final i in demoWorker.pin) {
+  for (final i in demoPin) {
     await tester.tap(find.byKey(Key('pin-$i')));
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -124,7 +125,7 @@ class OrdensComLiberada extends OrdersNotifier {
 /// Responde tudo da o2, com o primeiro item em "não consegui".
 Future<ProviderContainer> abrirImpedida(WidgetTester tester, Size size, FakeSpeaker voz) async {
   final c = await startApp(tester, size, speaker: voz);
-  await enterPin(tester, demoWorker.pin);
+  await enterPin(tester, demoPin);
   final s = c.read(sessionProvider.notifier);
   final itens = orderById('o2').items;
   s.answer('o2', Answer(itemId: itens.first.id, outcome: Outcome.blocked, at: DateTime.now(), reason: 'no_tool'));
@@ -147,7 +148,7 @@ class OrdensComDevolvida extends OrdersNotifier {
 /// Entra e deixa a ordem como volta do painel: respondida, sem "concluída" e sem mudanças.
 Future<ProviderContainer> abrirDevolvida(WidgetTester tester, Size size, FakeSpeaker voz) async {
   final c = await startApp(tester, size, speaker: voz, overrides: [ordersProvider.overrideWith(OrdensComDevolvida.new)]);
-  await enterPin(tester, demoWorker.pin);
+  await enterPin(tester, demoPin);
   final s = c.read(sessionProvider.notifier);
   final itens = orderById('o2').items;
   for (final i in itens) {
@@ -176,7 +177,7 @@ Future<void> alcancar(WidgetTester tester, String key) async {
 
 Future<void> enterPinAlcancando(WidgetTester tester) async {
   await alcancar(tester, 'worker-${demoWorker.id}');
-  for (final i in demoWorker.pin) {
+  for (final i in demoPin) {
     await alcancar(tester, 'pin-$i');
   }
 }
@@ -235,7 +236,7 @@ void main() {
 
           // Entrada, foto e figuras.
           await alcancar(tester, 'worker-${demoWorker.id}');
-          for (final i in demoWorker.pin) {
+          for (final i in demoPin) {
             await alcancar(tester, 'pin-$i');
           }
 
@@ -299,15 +300,35 @@ void main() {
 
   for (final MapEntry(key: name, value: size) in phones.entries) {
     group('celular $name', () {
-      testWidgets('PIN visual bloqueia após cinco erros', (tester) async {
+      testWidgets('PIN bloqueia após cinco erros', (tester) async {
         final c = await startApp(tester, size);
         for (var n = 0; n < maxPinAttempts; n++) {
           await enterPin(tester, [8, 8, 8, 8]);
         }
-        expect(c.read(sessionProvider).locked, isTrue);
+        expect(c.read(sessionProvider).lockedFor(demoWorker.id), isTrue);
         expect(find.byIcon(Icons.lock), findsOneWidget);
-        expect(find.byKey(const Key('pin-0')), findsNothing); // grade some até o gestor desbloquear
+        expect(find.byKey(const Key('pin-0')), findsNothing); // teclado some até o bloqueio vencer
         expect(c.read(sessionProvider).worker, isNull);
+      });
+
+      testWidgets('"Não sei" pula o item, a ordem conclui e não conta como feito', (tester) async {
+        final c = await startApp(tester, size);
+        await enterPin(tester, demoPin);
+        final s = c.read(sessionProvider.notifier);
+        final ordem = demoOrders.first;
+        await tapKey(tester, 'order-${ordem.id}');
+        await tapKey(tester, 'recognize-ok');
+        expect(find.byKey(const Key('answer-skip')), findsOneWidget);
+        await tapKey(tester, 'answer-skip');
+        final primeiro = ordem.items.first.id;
+        expect(c.read(sessionProvider).answersFor(ordem.id)[primeiro]?.outcome, Outcome.skipped);
+        for (final item in ordem.items.skip(1)) {
+          s.answer(ordem.id, Answer(itemId: item.id, outcome: Outcome.skipped, at: DateTime.now()));
+        }
+        c.read(routerProvider).go('/ordem/${ordem.id}/finalizar');
+        await tester.pumpAndSettle();
+        final concluir = tester.widget<BigActionButton>(find.byKey(const Key('conclude')));
+        expect(concluir.onPressed, isNotNull, reason: 'pular não impede concluir');
       });
 
       testWidgets('crachá entra direto; crachá desconhecido, antigo ou de desativado não', (tester) async {
@@ -317,7 +338,7 @@ void main() {
         expect(session.tryBadge('D - RT - ME'), isNull); // etiqueta de equipamento
         expect(session.tryBadge('demo-cracha-teste'), isNull); // sem o prefixo do Zelo
         expect(c.read(sessionProvider).worker, isNull);
-        expect(c.read(sessionProvider).failedAttempts, 0); // crachá errado não bloqueia as figuras
+        expect(c.read(sessionProvider).pinFails, isEmpty); // crachá errado não bloqueia o PIN
 
         expect(session.tryBadge('zelo:cracha:demo-cracha-teste')?.id, demoWorker.id);
         expect(c.read(sessionProvider).worker?.id, demoWorker.id);
@@ -325,7 +346,7 @@ void main() {
 
       testWidgets('inspeção + ação até concluir a ordem', (tester) async {
         final c = await startApp(tester, size);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         expect(find.byKey(const Key('order-o2')), findsOneWidget);
 
         await tapKey(tester, 'order-o2');
@@ -395,7 +416,7 @@ void main() {
       testWidgets('sair pergunta antes, volta para a entrada e não deixa respostas para o próximo', (tester) async {
         final voz = FakeSpeaker();
         final c = await startApp(tester, size, speaker: voz);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         c.read(sessionProvider.notifier).answer('o2', Answer(itemId: orderById('o2').items.first.id, outcome: Outcome.ok, at: DateTime.now()));
         await tester.pumpAndSettle();
 
@@ -411,7 +432,7 @@ void main() {
         expect(c.read(sessionProvider).answersFor('o2'), isEmpty);
         expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget);
 
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         expect(find.byKey(const Key('order-o2')), findsOneWidget);
       });
 
@@ -455,7 +476,7 @@ void main() {
       testWidgets('lista carregada e vazia ainda diz que acabou', (tester) async {
         final voz = FakeSpeaker();
         await startApp(tester, size, speaker: voz, overrides: [ordersProvider.overrideWith(ListaDemorada.new)]);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         await tester.pump();
         expect(voz.said.last, contains(Phrases.allDone));
         expect(find.text('Nada para hoje'), findsOneWidget);
@@ -464,7 +485,7 @@ void main() {
       testWidgets('tela principal fala só a quantidade; segurar o cartão fala a atividade', (tester) async {
         final voz = FakeSpeaker();
         final c = await startApp(tester, size, speaker: voz);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         final total = c.read(ordersProvider).where((o) => o.current).length;
         expect(voz.said.last, contains('$total atividades pendentes'));
         for (final o in c.read(ordersProvider)) {
@@ -480,7 +501,7 @@ void main() {
 
       testWidgets('depois de responder, vai só para o que falta', (tester) async {
         final c = await startApp(tester, size);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         final itens = orderById('o1').items;
         expect(itens.length, greaterThanOrEqualTo(3));
         // Como numa ordem liberada: falta o primeiro e o último; os do meio já têm resposta.
@@ -529,7 +550,7 @@ void main() {
       testWidgets('liberada pelo gestor: primeiro na lista, com marca, aviso escrito e falado', (tester) async {
         final voz = FakeSpeaker();
         await startApp(tester, size, speaker: voz, overrides: [ordersProvider.overrideWith(OrdensComLiberada.new)]);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         expect(voz.said.last, contains('1 foi liberada pelo gestor'));
         expect(find.byKey(const Key('released-o2')), findsOneWidget);
         final y = tester.getTopLeft(find.byKey(const Key('order-o2'))).dy;
@@ -595,7 +616,7 @@ void main() {
 
       testWidgets('problema com motivo, desfazer e medição fora da faixa', (tester) async {
         final c = await startApp(tester, size);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         await tapKey(tester, 'order-o1');
         await tapKey(tester, 'recognize-ok');
 
@@ -632,7 +653,7 @@ void main() {
       testWidgets('botão amarelo fala as instruções do problema, não repete o item', (tester) async {
         final voice = FakeSpeaker();
         await startApp(tester, size, speaker: voice);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         await tapKey(tester, 'order-o1');
         await tapKey(tester, 'recognize-ok');
         voice.said.clear();
@@ -659,7 +680,7 @@ void main() {
 
       testWidgets('correia mostra problemas de correia; envio só aparece com erro', (tester) async {
         final c = await startApp(tester, size);
-        await enterPin(tester, demoWorker.pin);
+        await enterPin(tester, demoPin);
         await tapKey(tester, 'order-o3');
         await tapKey(tester, 'recognize-ok');
         await tapKey(tester, 'answer-ok'); // motor do elevador
@@ -686,17 +707,41 @@ void main() {
     expect(problemsByKind[ComponentKind.vibrator]!.map((r) => r.$1), isNot(contains('oil_leak')));
   });
 
-  test('funcionário desativado não entra nem por crachá nem por figuras', () {
+  test('PIN confere pelo hash, igual ao do painel, e bloqueio é por funcionário', () {
+    // Mesmo valor de frontend/src/lib/workers.ts: se um lado mudar, ninguém entra sem crachá.
+    expect(pinHashOf('w1', demoPin), demoWorker.pinHash);
+    final colega = Worker(id: 'w3', name: 'Colega', pinHash: pinHashOf('w3', [9, 9, 9, 9]), badgeHash: 'x');
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final session = c.read(sessionProvider.notifier);
+    for (var n = 0; n < maxPinAttempts; n++) {
+      expect(session.tryPin(demoWorker, [9, 9, 9, 9]), isFalse);
+    }
+    expect(c.read(sessionProvider).lockedFor(demoWorker.id), isTrue);
+    // Bloqueado: nem o PIN certo entra.
+    expect(session.tryPin(demoWorker, demoPin), isFalse);
+    // O colega no mesmo celular continua entrando, e aqui o 9 existe.
+    expect(session.tryPin(colega, [9, 9, 9, 9]), isTrue);
+    session.logout();
+    expect(c.read(sessionProvider).lockedFor(demoWorker.id), isTrue, reason: 'sair não dá novas tentativas');
+  });
+
+  test('lista guardada pelo app antigo vira hash ao ler', () {
+    final w = Worker.fromJson({'id': 'w1', 'name': 'x', 'pin': demoPin, 'badgeHash': 'y'});
+    expect(w.pinHash, demoWorker.pinHash);
+  });
+
+  test('funcionário desativado não entra nem por crachá nem por PIN', () {
     final c = ProviderContainer(overrides: [
       workersProvider.overrideWithBuild((ref, notifier) => [
-            Worker(id: 'w2', name: 'Desativado', pin: demoWorker.pin, badgeHash: demoWorker.badgeHash, active: false),
+            Worker(id: 'w2', name: 'Desativado', pinHash: pinHashOf('w2', demoPin), badgeHash: demoWorker.badgeHash, active: false),
           ]),
     ]);
     addTearDown(c.dispose);
     final session = c.read(sessionProvider.notifier);
     final w = c.read(workersProvider).single;
     expect(session.tryBadge('zelo:cracha:demo-cracha-teste'), isNull);
-    expect(session.tryPin(w, w.pin), isFalse);
+    expect(session.tryPin(w, demoPin), isFalse);
   });
 
   test('item com equipamento ligado não aceita "funcionando" como motivo', () {

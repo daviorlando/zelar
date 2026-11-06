@@ -6,12 +6,15 @@ import '../domain/models.dart';
 // As faixas de medição são FICTÍCIAS, só para o teste de uso: em produção os
 // limites vêm do responsável técnico e o sistema não inventa valores.
 
+/// PIN do trabalhador de teste.
+const demoPin = [0, 1, 2, 5];
+
 /// Sem painel configurado (testes e demonstração), entra este trabalhador.
 /// Crachá de teste: QR com o texto `zelo:cracha:demo-cracha-teste`.
 const demoWorker = Worker(
   id: 'w1',
   name: 'Trabalhador de teste',
-  pin: [0, 1, 2, 5],
+  pinHash: 'b5320752bb5e3029fda4b939894092ecd5a4aa3cf2fd65182ac8929c2f11b13c',
   badgeHash: '32cef541342c0da2b81512a5ef63cd1b56ac29641f03e6fc561b73372a686c06',
 );
 
@@ -158,19 +161,6 @@ final demoOrders = <WorkOrder>[
       ),
     ],
   ),
-];
-
-/// Figuras do PIN visual: devem ser validadas com os trabalhadores no Sprint 1.
-const pinFigures = <(IconData, Color, String)>[
-  (Icons.wb_sunny, Color(0xFFF9A825), 'sol'),
-  (Icons.home, Color(0xFF6D4C41), 'casa'),
-  (Icons.directions_car, Color(0xFFC62828), 'carro'),
-  (Icons.park, Color(0xFF2E7D32), 'árvore'),
-  (Icons.water_drop, Color(0xFF1565C0), 'gota'),
-  (Icons.star, Color(0xFFFF8F00), 'estrela'),
-  (Icons.favorite, Color(0xFFAD1457), 'coração'),
-  (Icons.key, Color(0xFF455A64), 'chave'),
-  (Icons.pets, Color(0xFF5D4037), 'cachorro'),
 ];
 
 /// Motivo ilustrado: id, figura, rótulo curto e explicação falada ao tocar.

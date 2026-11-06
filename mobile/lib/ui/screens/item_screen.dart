@@ -31,6 +31,9 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
   late final item = order.items[widget.index];
   late final component = order.equipment.component(item.componentId);
   late final guide = Phrases.item(item);
+
+  /// A foto é da máquina: num componente (motor, mancal), vale o desenho dele.
+  String? get _photo => component.id == order.equipment.id ? order.equipment.photoFile : null;
   final _openedAt = DateTime.now();
   var _replays = 0;
 
@@ -59,6 +62,37 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
     context.go('${OrderFlow.item(order.id, widget.index)}/$kind');
   }
 
+  /// Lado a lado: quatro botões grandes não cabem em celular pequeno.
+  Widget _blockedAndSkip() => Row(
+        children: [
+          Expanded(
+            child: BigActionButton(
+              key: const Key('answer-blocked'),
+              label: 'Não consegui',
+              icon: Icons.disabled_by_default,
+              compact: true,
+              oneLine: true,
+              color: ZeloColors.blocked,
+              spokenHelp: Phrases.blockedButton,
+              onPressed: () => _goReason('impedimento'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: BigActionButton(
+              key: const Key('answer-skip'),
+              label: 'Não sei',
+              icon: Icons.help,
+              compact: true,
+              oneLine: true,
+              color: ZeloColors.skip,
+              spokenHelp: Phrases.skipButton,
+              onPressed: () => _record(Outcome.skipped),
+            ),
+          ),
+        ],
+      );
+
   Widget _body(bool measuring, Widget content) => measuring ? FillOrScroll(child: content) : content;
 
   @override
@@ -80,7 +114,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
               children: [
                 SizedBox(
                   width: 80,
-                  child: EquipmentPicture(icon: component.icon, color: eq.color, size: 80, label: component.shortName),
+                  child: EquipmentPicture(icon: component.icon, color: eq.color, size: 80, label: component.shortName, photoFile: _photo),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Text(item.shortText, style: Theme.of(context).textTheme.titleMedium)),
@@ -95,6 +129,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 onConfirm: (value, outOfRange) =>
                     _record(Outcome.measured, value: value, reason: outOfRange ? Answer.outOfRange : null),
                 onHelp: () => _record(Outcome.help),
+                onSkip: () => _record(Outcome.skipped),
               ),
             ),
           ] else ...[
@@ -102,7 +137,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: EquipmentPicture(icon: component.icon, color: eq.color, label: component.shortName)),
+                  Expanded(child: EquipmentPicture(icon: component.icon, color: eq.color, label: component.shortName, photoFile: _photo)),
                   const SizedBox(width: 16),
                   audio,
                 ],
@@ -139,14 +174,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 onPressed: () => _goReason('problema'),
               ),
               const SizedBox(height: 12),
-              BigActionButton(
-                key: const Key('answer-blocked'),
-                label: 'Não consegui',
-                icon: Icons.disabled_by_default,
-                color: ZeloColors.blocked,
-                spokenHelp: Phrases.blockedButton,
-                onPressed: () => _goReason('impedimento'),
-              ),
+              _blockedAndSkip(),
             ],
           ),
         ItemType.action => Column(
@@ -161,14 +189,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 onPressed: () => _record(Outcome.done),
               ),
               const SizedBox(height: 12),
-              BigActionButton(
-                key: const Key('answer-blocked'),
-                label: 'Não consegui',
-                icon: Icons.disabled_by_default,
-                color: ZeloColors.blocked,
-                spokenHelp: Phrases.blockedButton,
-                onPressed: () => _goReason('impedimento'),
-              ),
+              _blockedAndSkip(),
             ],
           ),
         ItemType.measurement => null,

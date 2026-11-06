@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -22,6 +23,8 @@ class BigActionButton extends ConsumerWidget {
     required this.onPressed,
     this.foreground = Colors.white,
     this.compact = false,
+    this.oneLine = false,
+    this.stacked = false,
     this.spokenHelp,
     this.disabledHint,
   });
@@ -34,6 +37,12 @@ class BigActionButton extends ConsumerWidget {
 
   /// Versão para meia largura: ícone e texto menores, mesma altura de toque.
   final bool compact;
+
+  /// Texto em uma linha, reduzindo só se não couber: para dois botões lado a lado com fonte grande.
+  final bool oneLine;
+
+  /// Ícone sobre o texto: para três botões na mesma linha.
+  final bool stacked;
 
   /// O que o botão faz, com a cor (ver Phrases). Sem valor, fala o rótulo.
   final String? spokenHelp;
@@ -59,23 +68,38 @@ class BigActionButton extends ConsumerWidget {
             disabledBackgroundColor: color.withValues(alpha: 0.35),
             disabledForegroundColor: foreground,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 20, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: stacked ? 4 : (compact ? 10 : 20), vertical: 8),
           ),
           onPressed: onPressed,
           // Com onLongPress o botão conta como ativo e engole o toque: desativado, quem ouve é o detector abaixo.
           onLongPress: onPressed == null && hint != null ? null : () => speaker.say(spokenHelp ?? label),
-          child: Row(
-            children: [
-              Icon(icon, size: compact ? 36 : 52),
-              SizedBox(width: compact ? 8 : 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(fontSize: compact ? 18 : 24, fontWeight: FontWeight.w700),
+          child: stacked
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 30),
+                    const SizedBox(height: 2),
+                    Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, height: 1.1)),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Icon(icon, size: compact ? 36 : 52),
+                    SizedBox(width: compact ? 8 : 16),
+                    Expanded(
+                      child: oneLine
+                          ? FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(label, maxLines: 1, style: TextStyle(fontSize: compact ? 18 : 24, fontWeight: FontWeight.w700)),
+                            )
+                          : Text(
+                              label,
+                              style: TextStyle(fontSize: compact ? 18 : 24, fontWeight: FontWeight.w700),
+                            ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -191,7 +215,7 @@ class SyncStatusIcon extends ConsumerWidget {
 
 /// Foto do equipamento ou componente. Sem foto cadastrada, mostra ilustração provisória.
 class EquipmentPicture extends StatelessWidget {
-  const EquipmentPicture({super.key, required this.icon, required this.color, this.size, this.label});
+  const EquipmentPicture({super.key, required this.icon, required this.color, this.size, this.label, this.photoFile});
 
   final IconData icon;
   final Color color;
@@ -200,17 +224,29 @@ class EquipmentPicture extends StatelessWidget {
   final double? size;
   final String? label;
 
+  /// Foto da máquina guardada no celular. Ainda não baixada ou ilegível: fica o desenho.
+  final String? photoFile;
+
   @override
   Widget build(BuildContext context) {
+    final photo = photoFile != null && File(photoFile!).existsSync() ? File(photoFile!) : null;
     Widget frame(double height, double iconSize) => Container(
           width: double.infinity,
           height: height,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.12),
             border: Border.all(color: color, width: 3),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(icon, size: iconSize, color: color),
+          child: photo == null
+              ? Icon(icon, size: iconSize, color: color)
+              : Image.file(
+                  photo,
+                  fit: BoxFit.cover,
+                  cacheWidth: 800,
+                  errorBuilder: (_, _, _) => Icon(icon, size: iconSize, color: color),
+                ),
         );
 
     final fixed = size;

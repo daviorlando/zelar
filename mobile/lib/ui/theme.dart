@@ -5,6 +5,8 @@ abstract final class ZeloColors {
   static const ok = Color(0xFF1B5E20);
   static const problem = Color(0xFFF9A825);
   static const blocked = Color(0xFF1565C0);
+  /// "Não sei": neutro, para não parecer problema nem impedimento.
+  static const skip = Color(0xFF546E7A);
   static const scan = Color(0xFF6A1B9A);
 
   /// Câmera usa o roxo da etiqueta (as duas abrem a câmera); microfone é laranja.

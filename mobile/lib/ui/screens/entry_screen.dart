@@ -1,10 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
-import '../../data/fixtures.dart';
 import '../../data/workers_repo.dart';
 import '../../domain/models.dart';
 import '../../state/session.dart';
@@ -14,7 +14,7 @@ import '../theme.dart';
 import '../widgets.dart';
 
 /// Entrada: crachá QR entra direto; sem crachá, a pessoa toca a própria foto
-/// e as quatro figuras dela (escopo, seções 4 e 5).
+/// e digita os quatro números dela (escopo, seções 4 e 5).
 class EntryScreen extends ConsumerStatefulWidget {
   const EntryScreen({super.key});
 
@@ -45,7 +45,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
   void _speakPrompt() {
     final selected = _selected;
     final String text;
-    if (ref.read(sessionProvider).locked) {
+    if (selected != null && ref.read(sessionProvider).lockedFor(selected.id)) {
       text = Phrases.locked;
     } else if (selected != null) {
       text = Phrases.pinFor(selected.name);
@@ -79,11 +79,11 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
     _speakPrompt();
   }
 
-  void _tap(int figure) {
+  void _tap(int digit) {
     final worker = _selected;
-    if (worker == null || _typed.length >= worker.pin.length) return;
-    setState(() => _typed.add(figure));
-    if (_typed.length < worker.pin.length) return;
+    if (worker == null || _typed.length >= pinLength) return;
+    setState(() => _typed.add(digit));
+    if (_typed.length < pinLength) return;
 
     final ok = ref.read(sessionProvider.notifier).tryPin(worker, List.of(_typed));
     final log = ref.read(eventLogProvider.notifier);
@@ -94,16 +94,15 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
     }
     log.add('pin', 'errado');
     setState(_typed.clear);
-    final locked = ref.read(sessionProvider).locked;
-    if (locked) setState(() => _selected = null);
+    final locked = ref.read(sessionProvider).lockedFor(worker.id);
     ref.read(speakerProvider).say(locked ? Phrases.locked : Phrases.pinWrong);
   }
 
   @override
   Widget build(BuildContext context) {
-    final locked = ref.watch(sessionProvider.select((s) => s.locked));
     final workers = ref.watch(workersProvider).where((w) => w.active).toList();
     final selected = _selected;
+    final locked = selected != null && ref.watch(sessionProvider.select((s) => s.lockedFor(selected.id)));
 
     return Scaffold(
       body: SafeArea(
@@ -130,18 +129,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                   onPressed: _scanBadge,
                 ),
                 const SizedBox(height: 16),
-                if (locked)
-                  Expanded(
-                    child: GestureDetector(
-                      // Facilitador: segurar o cadeado desbloqueia (em produção, só o gestor pelo painel).
-                      onLongPress: () {
-                        ref.read(sessionProvider.notifier).reset();
-                        ref.read(eventLogProvider.notifier).add('pin', 'desbloqueado pelo facilitador');
-                      },
-                      child: const Center(child: Icon(Icons.lock, size: 160, color: ZeloColors.overdue)),
-                    ),
-                  )
-                else if (selected == null) ...[
+                if (selected == null) ...[
                   Text('Sem crachá? Toque na sua foto', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   _WorkerGrid(workers: workers, onTap: _select),
@@ -164,65 +152,31 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _PinDots(filled: _typed.length, total: selected.pin.length),
-                  const SizedBox(height: 12),
-                  // Linhas e colunas flexíveis: as nove figuras cabem sem rolar, até em 360x640.
-                  Expanded(
-                    child: Column(
-                      children: [
-                        for (var row = 0; row < 3; row++)
-                          Expanded(
-                            child: Row(
-                              children: [
-                                for (var i = row * 3; i < row * 3 + 3; i++)
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5),
-                                      // O nome da figura nunca é falado: revelaria o PIN para quem está perto.
-                                      child: Semantics(
-                                        button: true,
-                                        label: pinFigures[i].$3,
-                                        child: Material(
-                                          color: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(16),
-                                            side: const BorderSide(color: Colors.black26, width: 2),
-                                          ),
-                                          child: InkWell(
-                                            key: Key('pin-$i'),
-                                            borderRadius: BorderRadius.circular(16),
-                                            onTap: () => _tap(i),
-                                            child: Center(
-                                              child: FittedBox(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: Icon(pinFigures[i].$1, size: 64, color: pinFigures[i].$2),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    height: ZeloSizes.minTouch,
-                    child: GestureDetector(
-                      onLongPress: () => ref.read(speakerProvider).say(Phrases.eraseFigure),
-                      child: IconButton(
-                        iconSize: 40,
-                        tooltip: 'Apagar a última figura',
-                        icon: const Icon(Icons.backspace),
-                        onPressed: _typed.isEmpty ? null : () => setState(_typed.removeLast),
+                  if (locked)
+                    Expanded(
+                      child: GestureDetector(
+                        // Só em teste de uso: em produção o bloqueio vence sozinho, e o crachá continua entrando.
+                        onLongPress: kReleaseMode
+                            ? null
+                            : () {
+                                ref.read(sessionProvider.notifier).reset();
+                                ref.read(eventLogProvider.notifier).add('pin', 'desbloqueado pelo facilitador');
+                              },
+                        child: const Center(child: Icon(Icons.lock, size: 160, color: ZeloColors.overdue)),
+                      ),
+                    )
+                  else ...[
+                    _PinDots(filled: _typed.length, total: pinLength),
+                    const SizedBox(height: 12),
+                    // Linhas e colunas flexíveis: o teclado cabe sem rolar, até em 360x640.
+                    Expanded(
+                      child: _PinPad(
+                        onDigit: _tap,
+                        onErase: _typed.isEmpty ? null : () => setState(_typed.removeLast),
+                        onEraseHelp: () => ref.read(speakerProvider).say(Phrases.eraseDigit),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ],
             ),
@@ -233,7 +187,59 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
   }
 }
 
-/// Fotos dos funcionários ativos; tocar fala o nome e abre as figuras.
+/// Teclado do PIN. Os números tocados nunca são falados: revelariam o PIN para quem está perto.
+class _PinPad extends StatelessWidget {
+  const _PinPad({required this.onDigit, required this.onErase, required this.onEraseHelp});
+
+  final void Function(int) onDigit;
+  final VoidCallback? onErase;
+  final VoidCallback onEraseHelp;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget key(int digit) => Padding(
+          padding: const EdgeInsets.all(4),
+          child: FilledButton.tonal(
+            key: Key('pin-$digit'),
+            style: FilledButton.styleFrom(
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              textStyle: const TextStyle(fontSize: 36, fontWeight: FontWeight.w800),
+            ),
+            onPressed: () => onDigit(digit),
+            child: Text('$digit'),
+          ),
+        );
+    Widget row(List<Widget> cells) => Expanded(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (final c in cells) Expanded(child: c)]),
+        );
+    return Column(
+      children: [
+        row([key(1), key(2), key(3)]),
+        row([key(4), key(5), key(6)]),
+        row([key(7), key(8), key(9)]),
+        row([
+          const SizedBox.shrink(),
+          key(0),
+          GestureDetector(
+            onLongPress: onEraseHelp,
+            child: IconButton(
+              key: const Key('pin-erase'),
+              iconSize: 40,
+              tooltip: 'Apagar o último número',
+              icon: const Icon(Icons.backspace),
+              onPressed: onErase,
+            ),
+          ),
+        ]),
+      ],
+    );
+  }
+}
+
+/// Fotos dos funcionários ativos; tocar fala o nome e abre o teclado.
 class _WorkerGrid extends StatelessWidget {
   const _WorkerGrid({required this.workers, required this.onTap});
 

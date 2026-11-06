@@ -238,7 +238,7 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
       final res = await c
           .post(
             Uri.parse('${WorkersRepo.api}/api/mobile/sync'),
-            headers: {'x-device-key': WorkersRepo.deviceKey, 'content-type': 'application/json'},
+            headers: {...WorkersRepo.headers, 'content-type': 'application/json'},
             body: jsonEncode({'workerId': worker, 'ops': [for (final o in batch) o.toWire()]}),
           )
           .timeout(const Duration(seconds: 30));
@@ -289,7 +289,7 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
         continue;
       }
       final req = http.MultipartRequest('POST', Uri.parse('${WorkersRepo.api}/api/mobile/media'))
-        ..headers['x-device-key'] = WorkersRepo.deviceKey
+        ..headers.addAll(WorkersRepo.headers)
         ..fields['workerId'] = op.workerId
         ..fields['itemId'] = op.payload['itemId'] as String
         ..fields['kind'] = op.payload['kind'] as String

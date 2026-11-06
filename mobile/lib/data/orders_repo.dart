@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -34,7 +36,7 @@ class OrdersRepo {
     try {
       final res = await c
           .get(Uri.parse('${WorkersRepo.api}/api/mobile/orders?worker=$workerId'),
-              headers: {'x-device-key': WorkersRepo.deviceKey})
+              headers: WorkersRepo.headers)
           .timeout(const Duration(seconds: 30));
       if (res.statusCode != 200) throw HttpException('painel respondeu ${res.statusCode}');
       final body = utf8.decode(res.bodyBytes);
@@ -47,6 +49,66 @@ class OrdersRepo {
       if (client == null) c.close();
     }
   }
+}
+
+/// Fotos das máquinas, baixadas à parte para valerem sem internet. A URL assinada vence;
+/// o caminho muda a cada troca no painel, então o arquivo é identificado por ele.
+class EquipmentPhotos {
+  static Future<Directory> Function() directory = () async {
+    final dir = Directory('${(await getApplicationDocumentsDirectory()).path}/fotos_maquinas');
+    await dir.create(recursive: true);
+    return dir;
+  };
+
+  /// Conhecida depois de `prepare`: montar as ordens é síncrono.
+  static String? _dir;
+
+  static Future<void> prepare() async {
+    try {
+      _dir ??= (await directory()).path;
+    } catch (e) {
+      debugPrint('sem pasta de fotos de máquina: $e');
+    }
+  }
+
+  static String? fileOf(String? photoPath) {
+    if (photoPath == null || _dir == null) return null;
+    return '$_dir/${sha256.convert(utf8.encode(photoPath)).toString().substring(0, 16)}.jpg';
+  }
+
+  /// Baixa o que falta, uma falha não atrapalha as outras. Devolve se chegou alguma nova.
+  static Future<bool> fetch(Map<String, dynamic> json) async {
+    var any = false;
+    for (final e in (json['equipment'] as List).cast<Map<String, dynamic>>()) {
+      final path = fileOf(e['photoPath'] as String?);
+      final url = e['photoUrl'] as String?;
+      if (path == null || url == null) continue;
+      final file = File(path);
+      if (await file.exists()) continue;
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 30));
+        if (res.statusCode == 200) {
+          await file.writeAsBytes(res.bodyBytes);
+          any = true;
+        }
+      } catch (err) {
+        debugPrint('foto de máquina não baixada: $err');
+      }
+    }
+    return any;
+  }
+}
+
+/// "WEG W22 · 5 CV · 1750 RPM"; nulo quando o cadastro não tem nada disso.
+String? equipmentDetails(Map<String, dynamic> e) {
+  String? number(num? n, String unit) => n == null ? null : '${n.toString().replaceAll('.', ',')} $unit';
+  final parts = [
+    e['brand'] as String?,
+    e['model'] as String?,
+    number(e['powerCv'] as num?, 'CV'),
+    number(e['rpm'] as num?, 'RPM'),
+  ].whereType<String>().where((s) => s.trim().isNotEmpty);
+  return parts.isEmpty ? null : parts.join(' · ');
 }
 
 /// Ordens montadas e as respostas que o servidor já tem.
@@ -74,6 +136,8 @@ ParsedOrders parseOrders(Map<String, dynamic> json) {
       icon: Icons.precision_manufacturing,
       color: colorOf(e['tag'] as String),
       components: comps,
+      photoFile: EquipmentPhotos.fileOf(e['photoPath'] as String?),
+      details: equipmentDetails(e),
     );
   }
 
@@ -134,6 +198,7 @@ Answer answerFromServer(String itemId, String result, {String? reason, double? v
     'problem' => Outcome.problem,
     'done' => Outcome.done,
     'measured' => Outcome.measured,
+    'skipped' => Outcome.skipped,
     'blocked' when reason == helpReason => Outcome.help,
     _ => Outcome.blocked,
   };
@@ -251,6 +316,7 @@ class OrdersNotifier extends Notifier<List<WorkOrder>> {
     // Sai a lista de quem usou o celular antes: enquanto a nova não chega, não há o que mostrar.
     state = const [];
     load.set(OrdersLoad.loading);
+    await EquipmentPhotos.prepare();
     try {
       final cached = await _repo.loadCached(worker.id);
       if (cached != null) {
@@ -291,20 +357,29 @@ class OrdersNotifier extends Notifier<List<WorkOrder>> {
     try {
       final outbox = ref.read(outboxProvider.notifier);
       await outbox.flush();
+      // Funcionário novo e foto nova chegam junto com as ordens, sem esperar reabrir o app.
+      unawaited(ref.read(workersProvider.notifier).refresh());
       if (worker == null) return;
+      await EquipmentPhotos.prepare();
       // Se algo foi enviado durante o download, o que veio pode estar sem essa resposta
       // (e ela já saiu da fila): aplicar faria a resposta sumir da tela. Baixa de novo.
       for (var attempt = 0; attempt < 3; attempt++) {
         final before = outbox.delivered;
-        final parsed = parseOrders(await _repo.download(worker.id));
+        final json = await _repo.download(worker.id);
+        final parsed = parseOrders(json);
         // Trocou de funcionário durante o download: estas ordens não são de quem está aqui.
         if (ref.read(sessionProvider).worker?.id != worker.id) {
           _syncAgain = true;
           return;
         }
         if (outbox.delivered == before) {
+          setServerToday(json['today'] as String?);
           _apply(parsed);
           load.set(OrdersLoad.ready);
+          // Depois de mostrar as ordens: foto lenta não atrasa o trabalho. Chegando, redesenha.
+          if (await EquipmentPhotos.fetch(json) && ref.read(sessionProvider).worker?.id == worker.id) {
+            state = [...state];
+          }
           break;
         }
       }

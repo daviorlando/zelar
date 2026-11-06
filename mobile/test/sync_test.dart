@@ -65,7 +65,18 @@ Map<String, dynamic> sampleJson() => {
 
 void main() {
   group('ordens vindas do painel', () {
-    test('monta equipamento, componentes pelo sufixo da tag e itens pelo id da ordem', () {
+    test('item pulado volta do servidor como pulado, nunca como impedido', () {
+    final a = answerFromServer('i1', 'skipped');
+    expect(a.outcome, Outcome.skipped);
+    expect(a.isBlocked, isFalse);
+    expect(a.isSkipped, isTrue);
+  });
+
+  test('frequência desconhecida não vira diária', () {
+    expect(Frequency.parse('mensalidade'), isNot(Frequency.daily));
+  });
+
+  test('monta equipamento, componentes pelo sufixo da tag e itens pelo id da ordem', () {
       final p = parseOrders(sampleJson());
       final o = p.orders.firstWhere((x) => x.id == 'wo-1');
       expect(o.equipment.shortName, 'Rosca Transportadora do Forno');
@@ -242,7 +253,7 @@ void main() {
     ProviderContainer comFuncionario() {
       final c = ProviderContainer();
       addTearDown(c.dispose);
-      const w = Worker(id: 'w1', name: 'Teste', pin: [1, 2, 3, 4], badgeHash: 'x');
+      final w = Worker(id: 'w1', name: 'Teste', pinHash: pinHashOf('w1', const [1, 2, 3, 4]), badgeHash: 'x');
       c.read(sessionProvider.notifier).tryPin(w, const [1, 2, 3, 4]);
       return c;
     }
@@ -282,12 +293,12 @@ void main() {
           });
       await c.read(outboxProvider.notifier).addAnswer(workerId: 'w0', orderId: 'o', itemId: 'i', result: 'ok', at: DateTime.now());
       final servidor = MockClient((req) async {
-        downloads++;
+        if (req.url.path.endsWith('orders')) downloads++;
         return http.Response.bytes(utf8.encode(jsonEncode(sampleJson())), 200);
       });
       await http.runWithClient(() async {
         final primeiro = c.read(ordersProvider.notifier).sync(); // app abrindo, ninguém logado, enviando a fila
-        const w = Worker(id: 'w1', name: 'Teste', pin: [1, 2, 3, 4], badgeHash: 'x');
+        final w = Worker(id: 'w1', name: 'Teste', pinHash: pinHashOf('w1', const [1, 2, 3, 4]), badgeHash: 'x');
         c.read(sessionProvider.notifier).tryPin(w, const [1, 2, 3, 4]);
         await c.read(ordersProvider.notifier).loadFor(w);
         expect(c.read(ordersLoadProvider), OrdersLoad.loading);
@@ -302,7 +313,7 @@ void main() {
     test('sem nada guardado e sem internet: falhou, não "tudo feito"; com guardado: pronto', () async {
       OrdersRepo.directory = () async => dir;
       final c = comFuncionario();
-      const w = Worker(id: 'w1', name: 'Teste', pin: [1, 2, 3, 4], badgeHash: 'x');
+      final w = Worker(id: 'w1', name: 'Teste', pinHash: pinHashOf('w1', const [1, 2, 3, 4]), badgeHash: 'x');
       final caiu = MockClient((_) async => throw const SocketException('sem rede'));
       await http.runWithClient(() => c.read(ordersProvider.notifier).loadFor(w), () => caiu);
       expect(c.read(ordersLoadProvider), OrdersLoad.failed);
@@ -319,7 +330,7 @@ void main() {
       respond = aceitaTudo;
       var downloads = 0;
       final servidor = MockClient((req) async {
-        downloads++;
+        if (req.url.path.endsWith('orders')) downloads++;
         final json = sampleJson();
         if (downloads == 1) {
           // O servidor já montou esta resposta quando o funcionário responde e o envio termina.

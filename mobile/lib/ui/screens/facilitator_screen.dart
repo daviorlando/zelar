@@ -60,7 +60,7 @@ class _FacilitatorScreenState extends ConsumerState<FacilitatorScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('PIN de teste: sol, casa, carro, estrela', style: Theme.of(context).textTheme.titleMedium),
+          Text('PIN de teste: 0 1 2 5', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text('Duração: ${total.inMinutes} min ${total.inSeconds % 60} s'),
           Text('PIN errado: ${count('pin') - log.where((e) => e.type == 'pin' && e.detail == 'certo').length}'),

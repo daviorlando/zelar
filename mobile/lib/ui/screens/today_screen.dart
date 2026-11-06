@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,7 +76,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       action: const _LogoutButton(),
       title: GestureDetector(
         // Facilitador: segurar a foto abre o registro do teste de uso.
-        onLongPress: () => context.push('/facilitador'),
+        onLongPress: kReleaseMode ? null : () => context.push('/facilitador'),
         child: Row(
           children: [
             WorkerAvatar(worker: session.worker, radius: 24),
@@ -215,8 +216,8 @@ class _OrderCard extends ConsumerWidget {
     final eq = order.equipment;
     final answers = session.answersFor(order.id).values;
     final blocked = answers.where((a) => a.isBlocked).length;
-    // Impedido não está feito: o anel e o "Faltam" não contam.
-    final done = answers.length - blocked;
+    // Impedido e "não sei" não estão feitos: o anel e o "Faltam" não contam.
+    final done = answers.length - blocked - answers.where((a) => a.isSkipped).length;
     final finished = session.finished.contains(order.id);
     final hasProblem = session.answersFor(order.id).values.any((a) => a.isProblem);
     final returned = order.returned && !order.released && !finished;
@@ -252,7 +253,7 @@ class _OrderCard extends ConsumerWidget {
                   padding: const EdgeInsets.all(12),
                   child: SizedBox(
                     width: 112,
-                    child: EquipmentPicture(icon: eq.icon, color: eq.color, size: 112, label: eq.shortName),
+                    child: EquipmentPicture(icon: eq.icon, color: eq.color, size: 112, label: eq.shortName, photoFile: eq.photoFile),
                   ),
                 ),
                 Expanded(
@@ -271,7 +272,7 @@ class _OrderCard extends ConsumerWidget {
                             if (returned) Icon(Icons.undo, key: Key('returned-${order.id}'), color: ZeloColors.returned, size: 32),
                             if (released) Icon(Icons.lock_open, key: Key('released-${order.id}'), color: ZeloColors.returned, size: 32),
                             if (blocked > 0 && !finished) Icon(Icons.block, key: Key('blocked-${order.id}'), color: ZeloColors.blocked, size: 32),
-                            if (order.frequency != Frequency.daily) _FrequencyTag(order.frequency),
+                            _FrequencyTag(order.frequency),
                             if (order.overdue && !finished) const Icon(Icons.alarm, color: ZeloColors.overdue, size: 32),
                             if (hasProblem) const Icon(Icons.warning, color: ZeloColors.problem, size: 32),
                           ],
@@ -295,7 +296,7 @@ class _OrderCard extends ConsumerWidget {
   }
 }
 
-/// Etiqueta da frequência (diárias não levam: são a maioria e o padrão).
+/// Etiqueta da frequência.
 class _FrequencyTag extends StatelessWidget {
   const _FrequencyTag(this.frequency);
 

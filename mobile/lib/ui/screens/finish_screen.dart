@@ -31,8 +31,10 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
     if (missing > 0) return Phrases.answerMissing(missing);
     final problems = answers.values.where((a) => a.isProblem).length;
     final blocked = answers.values.where((a) => a.isBlocked).length;
+    final skipped = answers.values.where((a) => a.isSkipped).length;
     final parts = [
-      'Você respondeu ${answers.length} itens',
+      'Você respondeu ${answers.length - skipped} itens',
+      if (skipped > 0) '$skipped sem saber responder',
       if (problems > 0) '$problems ${problems == 1 ? 'problema' : 'problemas'}',
       if (blocked > 0) '$blocked que não conseguiu',
     ];
@@ -163,6 +165,7 @@ class _ResultRow extends ConsumerWidget {
 
   (IconData, Color) get _status => switch (answer) {
         null => (Icons.help, ZeloColors.overdue),
+        Answer(outcome: Outcome.skipped) => (Icons.help, ZeloColors.skip),
         final a when a.isProblem => (Icons.warning, ZeloColors.problem),
         Answer(outcome: Outcome.blocked || Outcome.help) => (Icons.disabled_by_default, ZeloColors.blocked),
         _ => (Icons.check_circle, ZeloColors.ok),
