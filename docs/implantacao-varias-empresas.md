@@ -4,7 +4,7 @@ Roteiro para levar esta versão à produção. Siga na ordem: as migrações pre
 
 ## O que falta e é com você
 
-Situação em 10/11/2026: o código está em `main` e o CI passou. O painel ainda não está na Vercel. O banco de produção segue na versão antiga, e as migrações já foram ensaiadas sobre uma cópia dele. Os passos marcados **(Claude)** são feitos pelo Claude, depois do seu OK.
+Situação em 10/11/2026: o código está em `main` e o CI passou. As migrações estão aplicadas, e o painel está no ar em https://zelo-vert.vercel.app (projeto `zelo` na Vercel, ligado ao `main`: cada envio publica sozinho). Os passos marcados **(Claude)** são feitos pelo Claude, depois do seu OK.
 
 ### Já feito
 
@@ -14,7 +14,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. O painel aind
 
 ### Banco
 
-- [ ] **4. Liberar as migrações.**
+- [x] **4. Migrações.** Aplicadas em 10/11; o resultado foi igual ao do ensaio.
   - Conferido em 10/11: nenhuma ordem diária aberta tem resposta. As 182 abertas saem, e a diária concluída e os 9 itens respondidos ficam.
   - Ensaiado em 10/11 sobre uma cópia da produção, sem erro.
   - O Claude Code bloqueia sozinho a escrita na produção. Para liberar, você tem duas opções:
@@ -27,7 +27,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. O painel aind
 
 ### Painel
 
-- [ ] **5. Criar o projeto na Vercel.** Só depois do passo 4.
+- [x] **5. Vercel.** Feito em 10/11: as variáveis estão só em Production, e as secretas estão marcadas como sensíveis. O endereço é `NEXT_PUBLIC_SITE_URL=https://zelo-vert.vercel.app`.
   - Em Add New → Project, importe o repositório `daviorlando/zelo` e escolha `frontend` em **Root Directory**.
   - Em Environment Variables, preencha:
 
@@ -71,7 +71,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. O painel aind
 
 ### Super-admin
 
-- [ ] **9. Criar a sua conta de super-admin.**
+- [x] **9. Super-admin.** `mateusbs.020@gmail.com`, criado em 10/11 com senha temporária, que o painel obriga a trocar no primeiro acesso.
   - Em Authentication → Users → Add user → Create new user, use um email que não seja de gestor e marque "Auto Confirm User".
   - Passe o email ao Claude. **(Claude)** Dá o papel de super-admin.
   - Entre em `/login`: você deve cair em `/admin/empresas`.
