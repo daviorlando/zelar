@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,14 +9,16 @@ import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
 import '../../data/workers_repo.dart';
 import '../../domain/models.dart';
+import '../../state/device.dart';
 import '../../state/session.dart';
 import '../../state/setup.dart';
 import '../logo.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-/// Entrada: crachá QR entra direto; sem crachá, a pessoa toca a própria foto
-/// e digita os quatro números dela (escopo, seções 4 e 5).
+/// Entrada: crachá QR entra direto. Sem crachá, a pessoa digita os quatro números dela, e o app
+/// descobre quem é; se não lembrar, toca a própria foto e digita (escopo, seções 4 e 5).
+/// Vários funcionários se revezam no mesmo celular: "Trocar de pessoa" volta para cá.
 class EntryScreen extends ConsumerStatefulWidget {
   const EntryScreen({super.key});
 
@@ -24,37 +28,75 @@ class EntryScreen extends ConsumerStatefulWidget {
 
 class _EntryScreenState extends ConsumerState<EntryScreen> {
   final _typed = <int>[];
+
+  /// Foto tocada: o PIN digitado é conferido só para esta pessoa.
   Worker? _selected;
+
+  /// Lista de fotos aberta. [_alreadyChecked]: veio de um PIN que serve para mais de um, então tocar entra.
+  List<Worker>? _choosing;
+  var _alreadyChecked = false;
+
+  /// Some o botão "Voltar" quando o prazo acaba.
+  Timer? _backTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(eventLogProvider.notifier).add('tela', 'entrada');
+      _watchBack();
       if (ref.read(startupProvider)) {
         _speakPrompt();
         return;
       }
-      // Ao abrir o app: se a primeira inicialização vai tomar a tela, esta não começa a falar.
+      // Ao abrir o app: se o tutorial ou a ligação do celular vão tomar a tela, esta não começa a falar.
       ref.listenManual(startupProvider, (_, ready) {
-        if (ready && mounted && !ref.read(setupProvider)) _speakPrompt();
+        if (ready && mounted && !ref.read(setupProvider) && !ref.read(deviceProvider)) _speakPrompt();
       });
+    });
+  }
+
+  @override
+  void dispose() {
+    _backTimer?.cancel();
+    super.dispose();
+  }
+
+  void _watchBack() {
+    final until = ref.read(sessionProvider).previousUntil;
+    if (until == null) return;
+    final left = until.difference(DateTime.now());
+    if (left.isNegative) return;
+    _backTimer = Timer(left, () {
+      if (mounted) setState(() {});
     });
   }
 
   void _speakPrompt() {
     final selected = _selected;
+    final session = ref.read(sessionProvider);
     final String text;
-    if (selected != null && ref.read(sessionProvider).lockedFor(selected.id)) {
+    if (selected != null && session.lockedFor(selected.id)) {
       text = Phrases.locked;
     } else if (selected != null) {
       text = Phrases.pinFor(selected.name);
+    } else if (_choosing != null && _alreadyChecked) {
+      text = Phrases.pinChoose;
     } else if (ref.read(workersProvider).isEmpty) {
       text = Phrases.noWorkers;
+    } else if (session.canGoBackTo != null) {
+      text = Phrases.entryAfterSwitch;
+    } else if (session.lockedFor(directPinKey)) {
+      text = Phrases.locked;
     } else {
       text = Phrases.entry;
     }
     ref.read(speakerProvider).say(text);
+  }
+
+  void _enter() {
+    _backTimer?.cancel();
+    context.go('/hoje');
   }
 
   Future<void> _scanBadge() async {
@@ -68,41 +110,101 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
       return;
     }
     log.add('crachá', worker.name);
-    context.go('/hoje');
+    _enter();
   }
 
-  void _select(Worker? worker) {
+  void _goBack() {
+    final worker = ref.read(sessionProvider.notifier).goBack();
+    if (worker == null) return setState(() {});
+    ref.read(eventLogProvider.notifier).add('troca', 'voltou ${worker.name}');
+    _enter();
+  }
+
+  void _openPhotos() {
+    setState(() {
+      _choosing = ref.read(workersProvider).where((w) => w.active).toList();
+      _alreadyChecked = false;
+      _selected = null;
+      _typed.clear();
+    });
+    ref.read(speakerProvider).say(Phrases.choosePhotoButton);
+  }
+
+  void _closePhotos() {
+    setState(() {
+      _choosing = null;
+      _selected = null;
+      _typed.clear();
+    });
+    _speakPrompt();
+  }
+
+  void _pickPhoto(Worker worker) {
+    if (_alreadyChecked) {
+      ref.read(sessionProvider.notifier).enterChosen(worker);
+      ref.read(eventLogProvider.notifier).add('pin', 'certo, escolheu ${worker.name}');
+      _enter();
+      return;
+    }
     setState(() {
       _selected = worker;
+      _choosing = null;
       _typed.clear();
     });
     _speakPrompt();
   }
 
   void _tap(int digit) {
-    final worker = _selected;
-    if (worker == null || _typed.length >= pinLength) return;
+    if (_typed.length >= pinLength) return;
     setState(() => _typed.add(digit));
     if (_typed.length < pinLength) return;
-
-    final ok = ref.read(sessionProvider.notifier).tryPin(worker, List.of(_typed));
+    final pin = List.of(_typed);
+    setState(_typed.clear);
     final log = ref.read(eventLogProvider.notifier);
-    if (ok) {
-      log.add('pin', 'certo');
-      context.go('/hoje');
+    final session = ref.read(sessionProvider.notifier);
+    final worker = _selected;
+
+    if (worker != null) {
+      if (session.tryPin(worker, pin)) {
+        log.add('pin', 'certo');
+        _enter();
+        return;
+      }
+      log.add('pin', 'errado');
+      ref.read(speakerProvider).say(ref.read(sessionProvider).lockedFor(worker.id) ? Phrases.locked : Phrases.pinWrong);
       return;
     }
-    log.add('pin', 'errado');
-    setState(_typed.clear);
-    final locked = ref.read(sessionProvider).lockedFor(worker.id);
-    ref.read(speakerProvider).say(locked ? Phrases.locked : Phrases.pinWrong);
+
+    switch (session.tryPinAny(pin)) {
+      case PinEntered():
+        log.add('pin', 'certo, direto');
+        _enter();
+      case PinChoose(:final workers):
+        log.add('pin', 'certo, ${workers.length} pessoas');
+        setState(() {
+          _choosing = workers;
+          _alreadyChecked = true;
+        });
+        _speakPrompt();
+      case PinWrong():
+        log.add('pin', 'errado, direto');
+        ref.read(speakerProvider).say(Phrases.pinWrong);
+      case PinLocked():
+        log.add('pin', 'bloqueado, direto');
+        setState(() {});
+        ref.read(speakerProvider).say(Phrases.locked);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final workers = ref.watch(workersProvider).where((w) => w.active).toList();
+    final session = ref.watch(sessionProvider);
     final selected = _selected;
-    final locked = selected != null && ref.watch(sessionProvider.select((s) => s.lockedFor(selected.id)));
+    final choosing = _choosing;
+    final back = session.canGoBackTo;
+    final locked = selected != null ? session.lockedFor(selected.id) : session.lockedFor(directPinKey);
+    final title = Theme.of(context).textTheme.titleMedium;
 
     return Scaffold(
       body: SafeArea(
@@ -120,37 +222,49 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                     IconButton(iconSize: 48, tooltip: 'Ouvir de novo', icon: const Icon(Icons.volume_up), onPressed: _speakPrompt),
                   ],
                 ),
+                if (back != null && choosing == null && selected == null) ...[
+                  BigActionButton(
+                    key: const Key('switch-back'),
+                    label: 'Voltar para ${back.name}',
+                    icon: Icons.undo,
+                    color: ZeloColors.ok,
+                    compact: true,
+                    spokenHelp: Phrases.backButton(back.name),
+                    onPressed: _goBack,
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 BigActionButton(
                   key: const Key('badge'),
                   label: 'Ler meu crachá',
                   icon: Icons.badge,
                   color: ZeloColors.scan,
+                  compact: choosing != null || selected != null,
                   spokenHelp: Phrases.badgeButton,
                   onPressed: _scanBadge,
                 ),
                 const SizedBox(height: 16),
-                if (selected == null) ...[
-                  Text('Sem crachá? Toque na sua foto', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  _WorkerGrid(workers: workers, onTap: _select),
-                ] else ...[
+                if (choosing != null) ...[
                   Row(
                     children: [
-                      WorkerAvatar(worker: selected, radius: 28),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(selected.name, style: Theme.of(context).textTheme.titleMedium)),
-                      GestureDetector(
-                        onLongPress: () => ref.read(speakerProvider).say(Phrases.otherPerson),
-                        child: IconButton(
-                          key: const Key('worker-back'),
-                          iconSize: 40,
-                          tooltip: 'Escolher outra foto',
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => _select(null),
-                        ),
-                      ),
+                      Expanded(child: Text(_alreadyChecked ? 'Toque na sua foto' : 'Toque na sua foto e digite seus números', style: title)),
+                      _BackIcon(onPressed: _closePhotos, onHelp: () => ref.read(speakerProvider).say(Phrases.otherPerson)),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  _WorkerGrid(workers: choosing, onTap: _pickPhoto),
+                ] else ...[
+                  if (selected != null)
+                    Row(
+                      children: [
+                        WorkerAvatar(worker: selected, radius: 28),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(selected.name, style: title)),
+                        _BackIcon(onPressed: _closePhotos, onHelp: () => ref.read(speakerProvider).say(Phrases.otherPerson)),
+                      ],
+                    )
+                  else
+                    Text(workers.isEmpty ? 'A lista de funcionários ainda não chegou.' : 'Ou digite seus números', style: title),
                   const SizedBox(height: 12),
                   if (locked)
                     Expanded(
@@ -162,7 +276,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                                 ref.read(sessionProvider.notifier).reset();
                                 ref.read(eventLogProvider.notifier).add('pin', 'desbloqueado pelo facilitador');
                               },
-                        child: const Center(child: Icon(Icons.lock, size: 160, color: ZeloColors.overdue)),
+                        child: const Center(child: Icon(Icons.lock, size: 120, color: ZeloColors.overdue)),
                       ),
                     )
                   else ...[
@@ -171,10 +285,21 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                     // Linhas e colunas flexíveis: o teclado cabe sem rolar, até em 360x640.
                     Expanded(
                       child: _PinPad(
-                        onDigit: _tap,
+                        onDigit: workers.isEmpty ? (_) {} : _tap,
                         onErase: _typed.isEmpty ? null : () => setState(_typed.removeLast),
                         onEraseHelp: () => ref.read(speakerProvider).say(Phrases.eraseDigit),
                       ),
+                    ),
+                  ],
+                  if (selected == null && workers.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const Key('choose-photo'),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(ZeloSizes.minTouch)),
+                      onPressed: _openPhotos,
+                      onLongPress: () => ref.read(speakerProvider).say(Phrases.choosePhotoButton),
+                      icon: const Icon(Icons.photo_camera_front, size: 28),
+                      label: const Text('Escolher pela foto', style: TextStyle(fontSize: 20)),
                     ),
                   ],
                 ],
@@ -185,6 +310,25 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
       ),
     );
   }
+}
+
+class _BackIcon extends StatelessWidget {
+  const _BackIcon({required this.onPressed, required this.onHelp});
+
+  final VoidCallback onPressed;
+  final VoidCallback onHelp;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onLongPress: onHelp,
+        child: IconButton(
+          key: const Key('worker-back'),
+          iconSize: 40,
+          tooltip: 'Voltar',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: onPressed,
+        ),
+      );
 }
 
 /// Teclado do PIN. Os números tocados nunca são falados: revelariam o PIN para quem está perto.

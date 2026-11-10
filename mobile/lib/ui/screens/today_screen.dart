@@ -140,49 +140,16 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   }
 }
 
-/// Sair, para outra pessoa entrar no mesmo celular. Pergunta antes: um toque sem querer
-/// não pode tirar o funcionário do que está fazendo.
+/// Trocar de pessoa: vários funcionários se revezam no mesmo celular. Sai na hora, sem perguntar;
+/// um toque sem querer se desfaz com "Voltar", na entrada, por alguns segundos.
+/// O que a pessoa fez continua guardado e na fila, em nome dela.
 class _LogoutButton extends ConsumerWidget {
   const _LogoutButton();
 
-  Future<void> _ask(BuildContext context, WidgetRef ref) async {
-    final speaker = ref.read(speakerProvider);
-    speaker.say(Phrases.logoutAsk);
-    final leave = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        scrollable: true,
-        title: const Icon(Icons.logout, size: 64),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            BigActionButton(
-              key: const Key('logout-confirm'),
-              label: 'Sair',
-              icon: Icons.logout,
-              color: ZeloColors.blocked,
-              compact: true,
-              spokenHelp: Phrases.logoutConfirmButton,
-              onPressed: () => Navigator.of(dialog).pop(true),
-            ),
-            const SizedBox(height: 12),
-            BigActionButton(
-              key: const Key('logout-stay'),
-              label: 'Continuar aqui',
-              icon: Icons.check_circle,
-              color: ZeloColors.ok,
-              compact: true,
-              spokenHelp: Phrases.logoutStayButton,
-              onPressed: () => Navigator.of(dialog).pop(false),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (leave != true) return;
-    await speaker.stop();
-    ref.read(sessionProvider.notifier).logout();
+  Future<void> _switch(BuildContext context, WidgetRef ref) async {
+    await ref.read(speakerProvider).stop();
+    ref.read(eventLogProvider.notifier).add('troca', 'trocar de pessoa');
+    ref.read(sessionProvider.notifier).switchPerson();
     if (context.mounted) context.go('/');
   }
 
@@ -190,15 +157,16 @@ class _LogoutButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Semantics(
       button: true,
-      label: 'Sair',
+      label: 'Trocar de pessoa',
       excludeSemantics: true,
       child: GestureDetector(
         onLongPress: () => ref.read(speakerProvider).say(Phrases.logoutButton),
         child: IconButton(
           key: const Key('logout'),
           iconSize: 40,
-          icon: const Icon(Icons.logout),
-          onPressed: () => _ask(context, ref),
+          tooltip: 'Trocar de pessoa',
+          icon: const Icon(Icons.switch_account),
+          onPressed: () => _switch(context, ref),
         ),
       ),
     );

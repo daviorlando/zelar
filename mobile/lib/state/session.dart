@@ -17,6 +17,37 @@ const maxPinAttempts = 5;
 /// O crachá continua entrando durante o bloqueio.
 const pinLockFor = Duration(minutes: 15);
 
+/// Chave do bloqueio do PIN digitado sem escolher a foto. Não se sabe quem está tentando,
+/// então ele conta para o celular todo; a foto e o crachá continuam entrando.
+const directPinKey = '*';
+
+/// Depois de "Trocar de pessoa", quanto tempo dá para voltar sem digitar o PIN de novo.
+const switchBackFor = Duration(seconds: 30);
+
+/// Resultado de digitar o PIN sem escolher a foto.
+sealed class DirectPin {
+  const DirectPin();
+}
+
+class PinEntered extends DirectPin {
+  const PinEntered(this.worker);
+  final Worker worker;
+}
+
+/// Mais de um funcionário tem este PIN: a pessoa toca a própria foto entre eles.
+class PinChoose extends DirectPin {
+  const PinChoose(this.workers);
+  final List<Worker> workers;
+}
+
+class PinWrong extends DirectPin {
+  const PinWrong();
+}
+
+class PinLocked extends DirectPin {
+  const PinLocked();
+}
+
 class SessionState {
   const SessionState({
     this.worker,
@@ -26,9 +57,17 @@ class SessionState {
     this.finished = const {},
     this.changed = const {},
     this.sync = SyncState.savedLocal,
+    this.previous,
+    this.previousUntil,
   });
 
   final Worker? worker;
+
+  /// Quem acabou de tocar em "Trocar de pessoa": pode voltar sem PIN até [previousUntil].
+  final Worker? previous;
+  final DateTime? previousUntil;
+
+  Worker? get canGoBackTo => previousUntil != null && previousUntil!.isAfter(DateTime.now()) ? previous : null;
 
   /// Erros seguidos e fim do bloqueio, por funcionário. Sobrevivem a sair e a reiniciar o app.
   final Map<String, int> pinFails;
@@ -57,6 +96,7 @@ class SessionState {
     Set<String>? finished,
     Set<String>? changed,
     SyncState? sync,
+    bool clearPrevious = false,
   }) {
     return SessionState(
       worker: clearWorker ? null : (worker ?? this.worker),
@@ -66,6 +106,8 @@ class SessionState {
       finished: finished ?? this.finished,
       changed: changed ?? this.changed,
       sync: sync ?? this.sync,
+      previous: clearPrevious ? null : previous,
+      previousUntil: clearPrevious ? null : previousUntil,
     );
   }
 }
@@ -116,7 +158,7 @@ class SessionNotifier extends Notifier<SessionState> {
     if (ok) {
       fails.remove(worker.id);
       until.remove(worker.id);
-      state = state.copyWith(worker: worker, pinFails: fails, lockedUntil: until);
+      state = state.copyWith(worker: worker, pinFails: fails, lockedUntil: until, clearPrevious: true);
     } else {
       // O bloqueio anterior já venceu (senão nem chegaria aqui): a contagem recomeça.
       final count = (until.containsKey(worker.id) ? 0 : fails[worker.id] ?? 0) + 1;
@@ -132,6 +174,53 @@ class SessionNotifier extends Notifier<SessionState> {
     return ok;
   }
 
+  /// PIN digitado sem escolher a foto: confere contra todos os funcionários ativos.
+  /// Quem está bloqueado não entra por aqui; erros contam no bloqueio do celular ([directPinKey]).
+  DirectPin tryPinAny(List<int> pin) {
+    if (state.lockedFor(directPinKey)) return const PinLocked();
+    final matches = ref
+        .read(workersProvider)
+        .where((w) => w.active && !state.lockedFor(w.id) && pinHashOf(w.id, pin) == w.pinHash)
+        .toList();
+    final fails = {...state.pinFails};
+    final until = {...state.lockedUntil};
+    final DirectPin result;
+    if (matches.isEmpty) {
+      final count = (until.containsKey(directPinKey) ? 0 : fails[directPinKey] ?? 0) + 1;
+      until.remove(directPinKey);
+      fails[directPinKey] = count;
+      if (count >= maxPinAttempts) {
+        until[directPinKey] = DateTime.now().add(pinLockFor);
+        fails.remove(directPinKey);
+      }
+      state = state.copyWith(pinFails: fails, lockedUntil: until);
+      result = state.lockedFor(directPinKey) ? const PinLocked() : const PinWrong();
+    } else {
+      fails.remove(directPinKey);
+      until.remove(directPinKey);
+      if (matches.length == 1) {
+        fails.remove(matches.single.id);
+        state = state.copyWith(worker: matches.single, pinFails: fails, lockedUntil: until, clearPrevious: true);
+        result = PinEntered(matches.single);
+      } else {
+        state = state.copyWith(pinFails: fails, lockedUntil: until);
+        result = PinChoose(matches);
+      }
+    }
+    unawaited(_saveLocks());
+    return result;
+  }
+
+  /// Depois de [PinChoose]: o PIN já foi conferido para todos da lista.
+  void enterChosen(Worker worker) => state = state.copyWith(worker: worker, clearPrevious: true);
+
+  /// Desfaz "Trocar de pessoa" dentro de [switchBackFor].
+  Worker? goBack() {
+    final worker = state.canGoBackTo;
+    if (worker != null) state = state.copyWith(worker: worker, clearPrevious: true);
+    return worker;
+  }
+
   /// Crachá entra direto (decisão do solicitante). Código aleatório de 256 bits não se
   /// adivinha, então crachá errado não conta para o bloqueio do PIN.
   /// Crachá antigo (trocado no painel) ou de funcionário desativado não entra.
@@ -139,7 +228,7 @@ class SessionNotifier extends Notifier<SessionState> {
     final hash = badgeHashOf(qr);
     if (hash == null) return null;
     final worker = ref.read(workersProvider).where((w) => w.active && w.badgeHash == hash).firstOrNull;
-    if (worker != null) state = state.copyWith(worker: worker);
+    if (worker != null) state = state.copyWith(worker: worker, clearPrevious: true);
     return worker;
   }
 
@@ -147,6 +236,15 @@ class SessionNotifier extends Notifier<SessionState> {
   /// enviado continua na fila do celular, em nome de quem respondeu.
   /// O bloqueio do PIN fica: sair e entrar de novo não dá mais tentativas.
   void logout() => state = SessionState(pinFails: state.pinFails, lockedUntil: state.lockedUntil);
+
+  /// Como [logout], mas quem saiu pode voltar sem PIN por [switchBackFor]: um toque sem querer
+  /// em "Trocar de pessoa" não custa nada.
+  void switchPerson() => state = SessionState(
+        pinFails: state.pinFails,
+        lockedUntil: state.lockedUntil,
+        previous: state.worker,
+        previousUntil: DateTime.now().add(switchBackFor),
+      );
 
   /// Com painel configurado, cada mudança vira operação na fila de envio.
   OutboxNotifier? get _outbox => WorkersRepo.configured && state.worker != null ? ref.read(outboxProvider.notifier) : null;

@@ -32,7 +32,12 @@ abstract final class Phrases {
 
   // Telas.
   static const entry = 'Para entrar, toque no botão roxo e mostre o seu crachá para a câmera. '
-      'Se não estiver com o crachá, toque na sua foto.';
+      'Ou digite os seus quatro números. Se não lembrar, toque em Escolher pela foto.';
+  static const pinChoose = 'Mais de uma pessoa tem esse número. Toque na sua foto.';
+  static const choosePhotoButton = 'Escolher pela foto: tocar na sua foto e depois digitar os seus números.';
+  static const entryAfterSwitch = 'Pronto. Agora a próxima pessoa entra com o crachá ou com os números. '
+      'Se tocou sem querer, toque no botão verde, Voltar.';
+  static String backButton(String name) => 'Botão verde: voltar para $name, sem digitar os números.';
   static String pinFor(String name) =>
       '$name. Agora digite os seus quatro números, um de cada vez. Se errar, toque na seta embaixo para apagar.';
   static const pinWrong = 'Número errado. Tente de novo.';
@@ -40,9 +45,14 @@ abstract final class Phrases {
   static const badgeButton = 'Botão roxo: ler o seu crachá com a câmera.';
   static const badgeUnknown = 'Crachá não reconhecido. Chame o gestor.';
   static const otherPerson = 'Voltar: escolher outra foto.';
-  static const activation = 'Para ligar este celular, peça o código ao gestor e digite aqui. Depois toque no botão verde, Ligar.';
-  static const activationButton = 'Botão verde: ligar este celular com o código digitado.';
+  static const activation = 'Para ligar este celular à empresa, o gestor entra uma vez com o email e a senha do painel. '
+      'Depois toque no botão verde, Ligar.';
+  static const activationCode = 'Digite o código que o gestor gerou no painel, em Celulares. Depois toque no botão verde, Ligar.';
+  static const activationButton = 'Botão verde: ligar este celular à empresa.';
   static const activationInvalid = 'Código errado ou vencido. Peça um novo ao gestor.';
+  static const activationWrongLogin = 'Email ou senha errados. Confira e tente de novo.';
+  static const activationNotManager = 'Esta conta não é de gestor. Entre com a conta do gestor da empresa.';
+  static const activationWait = 'Muitas tentativas. Espere um minuto e tente de novo.';
   static const activationOffline = 'Sem internet. Conecte o celular e tente de novo.';
   static const noWorkers = 'A lista de funcionários ainda não foi baixada. Chame o gestor.';
   static const allDone = 'Tudo feito por hoje. Obrigado.';
@@ -51,20 +61,18 @@ abstract final class Phrases {
   static const setupVoiceReady = 'Bem-vindo ao Zelo. A voz em português já está pronta. Toque no botão verde, Próximo.';
   static const setupVoiceMissing = 'Bem-vindo ao Zelo. Este celular ainda não tem a voz em português para usar sem internet. '
       'Toque no botão azul, Abrir configurações. Toque na engrenagem do serviço de voz, depois em Instalar dados de voz, e baixe Português do Brasil. Depois, volte para o Zelo.';
-  static const setupHowItWorks = 'Veja como funciona. Para entrar, leia o crachá ou toque na sua foto. '
+  static const setupHowItWorks = 'Veja como funciona. Para entrar, leia o crachá ou digite os seus quatro números. '
       'O botão verde quer dizer que está tudo certo. O amarelo, que você encontrou um problema. O azul, que não conseguiu fazer. '
       'O cinza, que você não sabe responder. '
       'Se tiver dúvida, segure um botão para ouvir o que ele faz. Toque no botão verde, Próximo.';
   static const setupDone = 'Tudo pronto. Toque no botão verde, Começar.';
+  static const setupDoneActivate = 'Tudo pronto. Agora o gestor liga este celular à empresa. Toque no botão verde, Começar.';
   static const setupNextButton = 'Botão verde: ir para o próximo passo.';
   static const setupOpenButton = 'Botão azul: abrir as configurações de voz do celular.';
   static const setupStartButton = 'Botão verde: começar a usar o Zelo.';
 
   // Sair.
-  static const logoutButton = 'Sair: para outra pessoa entrar neste celular.';
-  static const logoutAsk = 'Você quer sair? Para sair, toque no botão azul. Para continuar aqui, toque no botão verde.';
-  static const logoutConfirmButton = 'Botão azul: sair do Zelo. O que você fez continua guardado.';
-  static const logoutStayButton = 'Botão verde: continuar aqui.';
+  static const logoutButton = 'Trocar de pessoa: para outra pessoa entrar neste celular. O que você fez continua guardado.';
   static const loadFailed = 'Não consegui baixar as suas atividades. Puxe a tela para baixo para tentar de novo. Se continuar, chame o gestor.';
 
   /// Só a quantidade: a lista pode ser longa. Cada atividade fala ao segurar o cartão.

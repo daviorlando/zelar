@@ -172,6 +172,8 @@ async function gerarCodigo(page: Page, nome: string) {
 }
 const ativar = (code: string) =>
   fetch(`${SITE}/api/mobile/activate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code }) });
+const ativarComLogin = (email: string, password: string) =>
+  fetch(`${SITE}/api/mobile/activate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
 
 /* ── Imagens de teste ───────────────────────────────────────────────────── */
 
@@ -578,6 +580,33 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     expect((await fetch(`${SITE}/api/mobile/orders?worker=${funcionarioId}`, { headers: { "x-device-token": tokenB } })).status).toBe(401);
     expect((await sincronizar([concluir(ordemDe(EQ1))], tokenB)).status).toBe(401);
     expect((await fetch(`${SITE}/api/mobile/orders?worker=${funcionarioId}`, { headers: { "x-device-token": tokenA } })).status).toBe(200);
+  });
+
+  await etapa("celular ligado pelo login do gestor, sem código", async () => {
+    const errada = await ativarComLogin(EMAIL, "senha-errada");
+    expect(errada.status).toBe(400);
+    expect(((await errada.json()) as { error: string }).error).toBe("email ou senha incorretos");
+    expect(umValor(`select count(*)::int from device where company_id = '${empresaId}' and name like 'Celular ligado por%'`)).toBe(0);
+
+    // Super-admin não pertence a empresa nenhuma: não liga celular.
+    const superAdmin = await ativarComLogin("superadmin@teste.local", "senha-de-teste-123");
+    expect(superAdmin.status).toBe(400);
+    expect(((await superAdmin.json()) as { error: string }).error).toBe("use uma conta de gestor");
+
+    const r = await ativarComLogin(` ${EMAIL.toUpperCase()} `, SENHA);
+    expect(r.status).toBe(200);
+    const corpo = (await r.json()) as { token: string; company: string };
+    expect(corpo.company).toBe(EMPRESA);
+    const ligado = sql<{ name: string; created_by: string; token_hash: string }>(
+      `select name, created_by, token_hash from device where company_id = '${empresaId}' and name like 'Celular ligado por%'`,
+    );
+    expect(ligado).toHaveLength(1);
+    expect(ligado[0].name).toMatch(new RegExp(`^Celular ligado por ${EMAIL.replace(/\./g, "\\.")} em \\d{2}/\\d{2}$`));
+    expect(ligado[0].created_by).toBe(gestorId);
+    expect(ligado[0].token_hash).toBe(createHash("sha256").update(corpo.token).digest("hex"));
+    const lista = await fetch(`${SITE}/api/mobile/workers`, { headers: { "x-device-token": corpo.token } });
+    expect(lista.status).toBe(200);
+    expect(((await lista.json()) as { workers: { id: string }[] }).workers.map((w) => w.id)).toContain(funcionarioId);
   });
 
   await etapa("skipped: cartão conta à parte, ordem chega ao quadro ao vivo", async () => {

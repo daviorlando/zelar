@@ -30,8 +30,10 @@ class DeviceRefused implements Exception {
   const DeviceRefused();
 }
 
-/// Resultado de digitar o código: null deu certo; senão, a fala do erro.
-enum ActivationError { invalid, offline }
+/// Por que a ligação não deu certo. Null quando deu.
+/// invalid: código errado ou vencido; wrongLogin: email ou senha do gestor errados;
+/// notManager: a conta não é de gestor de empresa ativa; tooMany: o painel pediu para esperar.
+enum ActivationError { invalid, wrongLogin, notManager, tooMany, offline }
 
 /// True quando o celular precisa de código: ainda sem token, ou com o token recusado.
 /// A fila de envio não é tocada: o que estava guardado sai quando ele voltar a ter acesso.
@@ -54,13 +56,21 @@ class DeviceNotifier extends Notifier<bool> {
 
   void refused() => state = true;
 
-  Future<ActivationError?> activate(String code, {http.Client? client}) async {
+  /// Liga o celular pelo login do gestor (email e senha do painel) ou por um código do painel.
+  Future<ActivationError?> activate({String? code, String? email, String? password, http.Client? client}) async {
     final c = client ?? http.Client();
+    final byLogin = email != null;
     try {
+      final body = byLogin ? {'email': email.trim(), 'password': password ?? ''} : {'code': code ?? ''};
       final res = await c
-          .post(Uri.parse('${WorkersRepo.api}/api/mobile/activate'), headers: {'content-type': 'application/json'}, body: jsonEncode({'code': code}))
+          .post(Uri.parse('${WorkersRepo.api}/api/mobile/activate'), headers: {'content-type': 'application/json'}, body: jsonEncode(body))
           .timeout(const Duration(seconds: 15));
-      if (res.statusCode != 200) return ActivationError.invalid;
+      if (res.statusCode == 429) return ActivationError.tooMany;
+      if (res.statusCode != 200) {
+        if (!byLogin) return ActivationError.invalid;
+        final message = _errorOf(res);
+        return message.contains('gestor') || message.contains('desativada') ? ActivationError.notManager : ActivationError.wrongLogin;
+      }
       final token = (jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>)['token'] as String;
       await store.write(token);
       WorkersRepo.deviceToken = token;
@@ -75,6 +85,14 @@ class DeviceNotifier extends Notifier<bool> {
       return ActivationError.offline;
     } finally {
       if (client == null) c.close();
+    }
+  }
+
+  static String _errorOf(http.Response res) {
+    try {
+      return ((jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>)['error'] as String?) ?? '';
+    } catch (_) {
+      return '';
     }
   }
 }

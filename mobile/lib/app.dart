@@ -121,10 +121,11 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
       try {
         await ref.read(deviceProvider.notifier).load();
         await ref.read(setupProvider.notifier).load();
-        if (ref.read(deviceProvider)) {
-          ref.read(routerProvider).go('/ativar');
-        } else if (ref.read(setupProvider)) {
+        // Como um app recém-baixado: primeiro o tutorial falado, depois ligar o celular, depois a entrada.
+        if (ref.read(setupProvider)) {
           ref.read(routerProvider).go('/primeira-vez');
+        } else if (ref.read(deviceProvider)) {
+          ref.read(routerProvider).go('/ativar');
         }
       } finally {
         // Mesmo com erro: a abertura não pode ficar presa na tela.

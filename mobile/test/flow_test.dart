@@ -104,8 +104,8 @@ class ComecaCarregando extends OrdersLoadNotifier {
 }
 
 /// O indicador de carregando gira sem parar: aqui não dá para esperar a tela assentar.
+/// PIN direto, sem tocar na foto.
 Future<void> entrarComListaCarregando(WidgetTester tester) async {
-  await tapKey(tester, 'worker-${demoWorker.id}');
   for (final i in demoPin) {
     await tester.tap(find.byKey(Key('pin-$i')));
     await tester.pump(const Duration(milliseconds: 100));
@@ -179,7 +179,9 @@ Future<void> alcancar(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
 }
 
+/// Pelo caminho mais longo: abre as fotos, toca a própria e digita.
 Future<void> enterPinAlcancando(WidgetTester tester) async {
+  await alcancar(tester, 'choose-photo');
   await alcancar(tester, 'worker-${demoWorker.id}');
   for (final i in demoPin) {
     await alcancar(tester, 'pin-$i');
@@ -238,7 +240,8 @@ void main() {
           await alcancar(tester, 'setup-next');
           await alcancar(tester, 'setup-finish');
 
-          // Entrada, foto e figuras.
+          // Entrada: escolher pela foto, a foto e os números.
+          await alcancar(tester, 'choose-photo');
           await alcancar(tester, 'worker-${demoWorker.id}');
           for (final i in demoPin) {
             await alcancar(tester, 'pin-$i');
@@ -306,18 +309,74 @@ void main() {
     final c = await startApp(tester, const Size(412, 915), speaker: FakeSpeaker(), overrides: [deviceProvider.overrideWith(_AtivaDeCerteza.new)]);
     c.read(routerProvider).go('/ativar');
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('activation-code')), 'ABCD2345');
+    expect(find.byKey(const Key('activation-code')), findsNothing, reason: 'o padrão é o login do gestor');
+    await tester.enterText(find.byKey(const Key('activation-email')), 'gestor@empresa.com');
+    await tester.enterText(find.byKey(const Key('activation-password')), 'senha');
     await tester.pump();
     await tapKey(tester, 'activation-send');
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('activation-send')), findsNothing);
     expect(find.byKey(const Key('badge')), findsOneWidget);
+    expect((c.read(deviceProvider.notifier) as _AtivaDeCerteza).pedidos, [('gestor@empresa.com', 'senha', null)]);
+  });
+
+  testWidgets('"Tenho um código" troca para o código e liga do mesmo jeito', (tester) async {
+    final c = await startApp(tester, const Size(360, 640), speaker: FakeSpeaker(), overrides: [deviceProvider.overrideWith(_AtivaDeCerteza.new)]);
+    c.read(routerProvider).go('/ativar');
+    await tester.pumpAndSettle();
+    await tapKey(tester, 'activation-mode');
+    await tester.enterText(find.byKey(const Key('activation-code')), 'ABCD2345');
+    await tester.pump();
+    await tapKey(tester, 'activation-send');
+    expect(find.byKey(const Key('badge')), findsOneWidget);
+    expect((c.read(deviceProvider.notifier) as _AtivaDeCerteza).pedidos, [(null, null, 'ABCD2345')]);
+  });
+
+  testWidgets('celular novo: tutorial primeiro, depois ligar à empresa, depois a entrada', (tester) async {
+    final voz = FakeSpeaker();
+    await startApp(tester, const Size(412, 915), speaker: voz, overrides: [
+      setupProvider.overrideWith(SetupPendente.new),
+      systemSettingsProvider.overrideWithValue(FakeSystem()),
+      deviceProvider.overrideWith(_SemLigar.new),
+    ]);
+    expect(find.text('A voz está pronta'), findsOneWidget);
+    await tapKey(tester, 'setup-next');
+    await tapKey(tester, 'setup-next');
+    expect(voz.said.last, Phrases.setupDoneActivate);
+    expect(find.text('Agora o gestor liga este celular à empresa.'), findsOneWidget);
+    await tapKey(tester, 'setup-finish');
+    expect(find.byKey(const Key('activation-email')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('activation-email')), 'gestor@empresa.com');
+    await tester.enterText(find.byKey(const Key('activation-password')), 'senha');
+    await tester.pump();
+    await tapKey(tester, 'activation-send');
+    expect(find.byKey(const Key('choose-photo')), findsOneWidget);
   });
 
   for (final MapEntry(key: name, value: size) in phones.entries) {
     group('celular $name', () {
-      testWidgets('PIN bloqueia após cinco erros', (tester) async {
+      testWidgets('PIN direto bloqueia após cinco erros; a foto e o crachá continuam', (tester) async {
         final c = await startApp(tester, size);
+        for (var n = 0; n < maxPinAttempts; n++) {
+          await enterPin(tester, [8, 8, 8, 8]);
+        }
+        expect(c.read(sessionProvider).lockedFor(directPinKey), isTrue);
+        expect(c.read(sessionProvider).lockedFor(demoWorker.id), isFalse);
+        expect(find.byIcon(Icons.lock), findsOneWidget);
+        expect(find.byKey(const Key('pin-0')), findsNothing);
+        // Pela foto, o PIN certo ainda entra.
+        await tapKey(tester, 'choose-photo');
+        await tapKey(tester, 'worker-${demoWorker.id}');
+        for (final i in demoPin) {
+          await tapKey(tester, 'pin-$i');
+        }
+        expect(c.read(sessionProvider).worker?.id, demoWorker.id);
+      });
+
+      testWidgets('PIN pela foto bloqueia aquela pessoa após cinco erros', (tester) async {
+        final c = await startApp(tester, size);
+        await tapKey(tester, 'choose-photo');
+        await tapKey(tester, 'worker-${demoWorker.id}');
         for (var n = 0; n < maxPinAttempts; n++) {
           await enterPin(tester, [8, 8, 8, 8]);
         }
@@ -410,7 +469,7 @@ void main() {
         expect(voz.said.last, Phrases.setupDone);
         await tapKey(tester, 'setup-finish');
         expect((c.read(setupProvider.notifier) as SetupPendente).finished, isTrue);
-        expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget); // tela de entrada
+        expect(find.byKey(const Key('choose-photo')), findsOneWidget); // tela de entrada
       });
 
       testWidgets('primeira inicialização: sem internet, dá para fazer a voz depois', (tester) async {
@@ -426,10 +485,10 @@ void main() {
       testWidgets('quem já passou pela primeira inicialização vai direto para a entrada', (tester) async {
         await startApp(tester, size);
         expect(find.byKey(const Key('setup-next')), findsNothing);
-        expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget);
+        expect(find.byKey(const Key('choose-photo')), findsOneWidget);
       });
 
-      testWidgets('sair pergunta antes, volta para a entrada e não deixa respostas para o próximo', (tester) async {
+      testWidgets('trocar de pessoa sai na hora, não deixa respostas para o próximo e dá para voltar', (tester) async {
         final voz = FakeSpeaker();
         final c = await startApp(tester, size, speaker: voz);
         await enterPin(tester, demoPin);
@@ -437,19 +496,21 @@ void main() {
         await tester.pumpAndSettle();
 
         await tapKey(tester, 'logout');
-        expect(voz.said.last, Phrases.logoutAsk);
-        await tapKey(tester, 'logout-stay');
-        expect(c.read(sessionProvider).worker, isNotNull);
-        expect(find.byKey(const Key('order-o2')), findsOneWidget);
-
-        await tapKey(tester, 'logout');
-        await tapKey(tester, 'logout-confirm');
         expect(c.read(sessionProvider).worker, isNull);
         expect(c.read(sessionProvider).answersFor('o2'), isEmpty);
-        expect(find.byKey(Key('worker-${demoWorker.id}')), findsOneWidget);
+        expect(voz.said.last, Phrases.entryAfterSwitch);
+        expect(find.text('Voltar para ${demoWorker.name}'), findsOneWidget);
 
+        // Toque sem querer: volta sem digitar o PIN.
+        await tapKey(tester, 'switch-back');
+        expect(c.read(sessionProvider).worker?.id, demoWorker.id);
+        expect(find.byKey(const Key('order-o2')), findsOneWidget);
+
+        // Troca de verdade: a próxima pessoa entra pelo PIN, e o "voltar" deixa de valer.
+        await tapKey(tester, 'logout');
         await enterPin(tester, demoPin);
         expect(find.byKey(const Key('order-o2')), findsOneWidget);
+        expect(c.read(sessionProvider).canGoBackTo, isNull);
       });
 
       testWidgets('lista ainda não chegou: não diz que acabou e fala a quantidade quando chega', (tester) async {
@@ -737,13 +798,33 @@ void main() {
     final device = c.read(deviceProvider.notifier);
     await device.load();
     expect(c.read(deviceProvider), isTrue);
-    final ok = await device.activate('abcd2345', client: MockClient((_) async => http.Response(jsonEncode({'token': 'novo', 'company': 'X'}), 200)));
+    final ok = await device.activate(code: 'abcd2345', client: MockClient((_) async => http.Response(jsonEncode({'token': 'novo', 'company': 'X'}), 200)));
     expect(ok, isNull);
     expect(guardado.valor, 'novo');
     expect(WorkersRepo.headers['x-device-token'], 'novo');
     expect(c.read(deviceProvider), isFalse);
-    final errado = await device.activate('errado00', client: MockClient((_) async => http.Response('{}', 400)));
+    final errado = await device.activate(code: 'errado00', client: MockClient((_) async => http.Response('{}', 400)));
     expect(errado, ActivationError.invalid);
+
+    // Login do gestor: o corpo leva email e senha, e cada recusa vira a fala certa.
+    Map<String, dynamic>? enviado;
+    final login = await device.activate(
+      email: ' gestor@empresa.com ',
+      password: 'segredo',
+      client: MockClient((req) async {
+        enviado = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'token': 'outro', 'company': 'X'}), 200);
+      }),
+    );
+    expect(login, isNull);
+    expect(enviado, {'email': 'gestor@empresa.com', 'password': 'segredo'});
+    expect(guardado.valor, 'outro');
+    Future<ActivationError?> recusado(int status, String erro) =>
+        device.activate(email: 'g@e.com', password: 'x', client: MockClient((_) async => http.Response(jsonEncode({'error': erro}), status)));
+    expect(await recusado(400, 'email ou senha incorretos'), ActivationError.wrongLogin);
+    expect(await recusado(400, 'use uma conta de gestor'), ActivationError.notManager);
+    expect(await recusado(400, 'empresa desativada'), ActivationError.notManager);
+    expect(await recusado(429, 'aguarde'), ActivationError.tooMany);
     device.refused();
     expect(c.read(deviceProvider), isTrue);
   });
@@ -765,6 +846,86 @@ void main() {
     expect(session.tryPin(colega, [9, 9, 9, 9]), isTrue);
     session.logout();
     expect(c.read(sessionProvider).lockedFor(demoWorker.id), isTrue, reason: 'sair não dá novas tentativas');
+  });
+
+  group('PIN direto, sem tocar na foto', () {
+    final ana = Worker(id: 'wa', name: 'Ana', pinHash: pinHashOf('wa', [1, 2, 3, 4]), badgeHash: 'a');
+    final beto = Worker(id: 'wb', name: 'Beto', pinHash: pinHashOf('wb', [5, 6, 7, 8]), badgeHash: 'b');
+    final caio = Worker(id: 'wc', name: 'Caio', pinHash: pinHashOf('wc', [5, 6, 7, 8]), badgeHash: 'c');
+    final saiu = Worker(id: 'wd', name: 'Desligado', pinHash: pinHashOf('wd', [1, 2, 3, 4]), badgeHash: 'd', active: false);
+
+    ProviderContainer comEquipe() {
+      final c = ProviderContainer(overrides: [workersProvider.overrideWithBuild((ref, notifier) => [ana, beto, caio, saiu])]);
+      addTearDown(c.dispose);
+      return c;
+    }
+
+    test('um só bate: entra direto; desativado com o mesmo PIN não atrapalha', () {
+      final c = comEquipe();
+      final r = c.read(sessionProvider.notifier).tryPinAny([1, 2, 3, 4]);
+      expect(r, isA<PinEntered>());
+      expect(c.read(sessionProvider).worker?.id, 'wa');
+    });
+
+    test('dois com o mesmo PIN: pede a foto e só entra quem for escolhido', () {
+      final c = comEquipe();
+      final s = c.read(sessionProvider.notifier);
+      final r = s.tryPinAny([5, 6, 7, 8]);
+      expect(r, isA<PinChoose>());
+      expect((r as PinChoose).workers.map((w) => w.id), ['wb', 'wc']);
+      expect(c.read(sessionProvider).worker, isNull);
+      s.enterChosen(caio);
+      expect(c.read(sessionProvider).worker?.id, 'wc');
+    });
+
+    test('cinco erros bloqueiam o PIN direto do celular; foto e crachá seguem', () {
+      final c = comEquipe();
+      final s = c.read(sessionProvider.notifier);
+      for (var n = 0; n < maxPinAttempts - 1; n++) {
+        expect(s.tryPinAny([0, 0, 0, 0]), isA<PinWrong>());
+      }
+      expect(s.tryPinAny([0, 0, 0, 0]), isA<PinLocked>());
+      expect(s.tryPinAny([1, 2, 3, 4]), isA<PinLocked>(), reason: 'bloqueado, nem o PIN certo entra direto');
+      expect(c.read(sessionProvider).worker, isNull);
+      expect(s.tryPin(ana, [1, 2, 3, 4]), isTrue, reason: 'pela foto, cada um tem a própria contagem');
+      s.logout();
+      expect(c.read(sessionProvider).lockedFor(directPinKey), isTrue, reason: 'sair não dá novas tentativas');
+    });
+
+    test('quem está bloqueado pela foto também não entra pelo PIN direto', () {
+      final c = comEquipe();
+      final s = c.read(sessionProvider.notifier);
+      for (var n = 0; n < maxPinAttempts; n++) {
+        s.tryPin(ana, [9, 9, 9, 9]);
+      }
+      expect(c.read(sessionProvider).lockedFor('wa'), isTrue);
+      expect(s.tryPinAny([1, 2, 3, 4]), isA<PinWrong>());
+      expect(c.read(sessionProvider).worker, isNull);
+    });
+
+    test('acertar zera os erros do PIN direto', () {
+      final c = comEquipe();
+      final s = c.read(sessionProvider.notifier);
+      for (var n = 0; n < maxPinAttempts - 1; n++) {
+        s.tryPinAny([0, 0, 0, 0]);
+      }
+      expect(s.tryPinAny([1, 2, 3, 4]), isA<PinEntered>());
+      s.logout();
+      expect(s.tryPinAny([0, 0, 0, 0]), isA<PinWrong>(), reason: 'a contagem recomeçou');
+    });
+
+    test('trocar de pessoa guarda quem saiu; voltar entra sem PIN, uma vez', () {
+      final c = comEquipe();
+      final s = c.read(sessionProvider.notifier);
+      s.tryPinAny([1, 2, 3, 4]);
+      s.switchPerson();
+      expect(c.read(sessionProvider).worker, isNull);
+      expect(c.read(sessionProvider).canGoBackTo?.id, 'wa');
+      expect(s.goBack()?.id, 'wa');
+      expect(c.read(sessionProvider).worker?.id, 'wa');
+      expect(c.read(sessionProvider).canGoBackTo, isNull);
+      expect(s.goBack(), isNull);
+    });
   });
 
   test('lista guardada pelo app antigo vira hash ao ler', () {
@@ -802,9 +963,21 @@ class _TokenNaMemoria implements TokenStore {
 }
 
 class _AtivaDeCerteza extends DeviceNotifier {
+  final pedidos = <(String?, String?, String?)>[];
+
   @override
-  Future<ActivationError?> activate(String code, {http.Client? client}) async {
+  Future<ActivationError?> activate({String? code, String? email, String? password, http.Client? client}) async {
+    pedidos.add((email, password, code));
     state = false;
     return null;
   }
+}
+
+/// Celular novo, ainda sem ligar à empresa: a abertura não lê token nenhum.
+class _SemLigar extends _AtivaDeCerteza {
+  @override
+  bool build() => true;
+
+  @override
+  Future<void> load() async {}
 }

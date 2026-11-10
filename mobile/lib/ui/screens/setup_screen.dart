@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
+import '../../state/device.dart';
 import '../../state/setup.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -55,12 +56,15 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   }
 
   bool get _voiceMissing => _voice == false;
+
+  /// O tutorial vem antes de ligar o celular: no fim, ele segue para a ligação.
+  bool get _needsActivation => ref.read(deviceProvider);
   bool get _muted => _volume == 0;
 
   String get _spoken => switch (_step) {
         0 => _voiceMissing ? Phrases.setupVoiceMissing : Phrases.setupVoiceReady,
         1 => Phrases.setupHowItWorks,
-        _ => Phrases.setupDone,
+        _ => _needsActivation ? Phrases.setupDoneActivate : Phrases.setupDone,
       };
 
   void _say() => ref.read(speakerProvider).say(_spoken);
@@ -72,7 +76,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
   Future<void> _finish() async {
     await ref.read(setupProvider.notifier).finish();
-    if (mounted) context.go('/');
+    if (mounted) context.go(_needsActivation ? '/ativar' : '/');
   }
 
   @override
@@ -147,7 +151,11 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         const SizedBox(height: 16),
         Text('Tudo pronto', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        const Text('Agora é só entrar.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20)),
+        Text(
+          _needsActivation ? 'Agora o gestor liga este celular à empresa.' : 'Agora é só entrar.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 20),
+        ),
       ];
 
   Widget _actions() {
