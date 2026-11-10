@@ -230,23 +230,28 @@ class EquipmentPicture extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photo = photoFile != null && File(photoFile!).existsSync() ? File(photoFile!) : null;
-    Widget frame(double height, double iconSize) => Container(
-          width: double.infinity,
-          height: height,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            border: Border.all(color: color, width: 3),
-            borderRadius: BorderRadius.circular(16),
+    // Sempre um quadrado centralizado: o painel recorta a foto da máquina em quadrado,
+    // e um cartão alto ou uma tela comprida não esticam nem cortam a imagem de outro jeito.
+    Widget frame(double side) => SizedBox.square(
+          dimension: side,
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              border: Border.all(color: color, width: 3),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: photo == null
+                ? Icon(icon, size: side * 0.6, color: color)
+                : Image.file(
+                    photo,
+                    fit: BoxFit.cover,
+                    width: side,
+                    height: side,
+                    cacheWidth: 800,
+                    errorBuilder: (_, _, _) => Icon(icon, size: side * 0.6, color: color),
+                  ),
           ),
-          child: photo == null
-              ? Icon(icon, size: iconSize, color: color)
-              : Image.file(
-                  photo,
-                  fit: BoxFit.cover,
-                  cacheWidth: 800,
-                  errorBuilder: (_, _, _) => Icon(icon, size: iconSize, color: color),
-                ),
         );
 
     final fixed = size;
@@ -254,14 +259,17 @@ class EquipmentPicture extends StatelessWidget {
       image: true,
       label: label,
       // Altura fixa evita LayoutBuilder (incompatível com IntrinsicHeight na tela Hoje).
-      child: fixed != null
-          ? frame(fixed, fixed * 0.6)
-          : LayoutBuilder(
-              builder: (context, box) {
-                final side = box.maxHeight.isFinite && box.maxHeight < box.maxWidth ? box.maxHeight : box.maxWidth;
-                return frame(box.maxHeight.isFinite ? box.maxHeight : side, side * 0.6);
-              },
-            ),
+      child: Center(
+        child: fixed != null
+            ? frame(fixed)
+            : LayoutBuilder(
+                builder: (context, box) {
+                  final w = box.maxWidth.isFinite ? box.maxWidth : 300.0;
+                  final h = box.maxHeight.isFinite ? box.maxHeight : w;
+                  return frame(w < h ? w : h);
+                },
+              ),
+      ),
     );
   }
 }

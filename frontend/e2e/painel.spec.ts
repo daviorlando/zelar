@@ -433,10 +433,16 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     await expect(page).toHaveURL(/salvo=1/, { timeout: 20_000 });
   });
 
-  await etapa("foto da máquina: imagem grande é reduzida, aparece, troca apaga a antiga, remove", async () => {
+  await etapa("foto da máquina: enquadra num quadrado, aparece, troca apaga a antiga, remove", async () => {
     const urlEq = `/gestor/equipamentos/${equipamentoId}`;
     const entrada = () => page.locator('input[type="file"]');
     const foto = page.getByRole("img", { name: `Foto de ${EQ1.nome}` });
+    const enquadrar = () => page.getByRole("dialog", { name: "Enquadrar a foto" });
+    const usar = async (qual: string) => {
+      await expect(enquadrar().getByRole("img", { name: "Foto escolhida" }), `enquadrar: ${qual}`).toBeVisible({ timeout: 15_000 });
+      await enquadrar().getByRole("button", { name: "Usar esta foto" }).click();
+      await expect(enquadrar()).toHaveCount(0);
+    };
 
     await page.goto(urlEq);
     await expect(page.getByText("Sem foto: o celular mostra um desenho")).toBeVisible();
@@ -451,10 +457,37 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     expect(umValor(`select photo_path from equipment where id = '${equipamentoId}'`)).toBeNull();
     expect(objetos("equipment-photos", equipamentoId)).toEqual([]);
 
-    // JPEG grande.
+    // JPEG grande. Cancelar o enquadramento não envia nada.
     const jpeg = await imagemGrande(page, "image/jpeg");
     expect(jpeg.length).toBeGreaterThan(5 * 1024 * 1024);
     await entrada().setInputFiles({ name: "grande.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await expect(enquadrar()).toBeVisible();
+    await enquadrar().getByRole("button", { name: "Cancelar" }).click();
+    await expect(enquadrar()).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(umValor(`select photo_path from equipment where id = '${equipamentoId}'`)).toBeNull();
+
+    // De novo: aproxima, arrasta e usa. O salvo é o quadrado do quadro, reduzido a 1024.
+    await entrada().setInputFiles({ name: "grande.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    const imagemNoQuadro = enquadrar().getByRole("img", { name: "Foto escolhida" });
+    await expect(imagemNoQuadro).toBeVisible();
+    const larguraAntes = (await imagemNoQuadro.boundingBox())!.width;
+    await enquadrar().getByRole("button", { name: "Aproximar mais" }).click();
+    await expect.poll(async () => (await imagemNoQuadro.boundingBox())!.width).toBeGreaterThan(larguraAntes * 1.2);
+    const quadro = (await enquadrar().getByTestId("quadro-da-foto").boundingBox())!;
+    const antes = (await imagemNoQuadro.boundingBox())!;
+    await page.mouse.move(quadro.x + quadro.width / 2, quadro.y + quadro.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(quadro.x + quadro.width / 2 + 60, quadro.y + quadro.height / 2 + 30, { steps: 5 });
+    await page.mouse.up();
+    await expect.poll(async () => (await imagemNoQuadro.boundingBox())!.x).toBeGreaterThan(antes.x + 30);
+    // A foto sempre cobre o quadro: nenhuma borda vazia.
+    const depois = (await imagemNoQuadro.boundingBox())!;
+    expect(depois.x).toBeLessThanOrEqual(quadro.x + 3);
+    expect(depois.y).toBeLessThanOrEqual(quadro.y + 3);
+    expect(depois.x + depois.width).toBeGreaterThanOrEqual(quadro.x + quadro.width - 3);
+    expect(depois.y + depois.height).toBeGreaterThanOrEqual(quadro.y + quadro.height - 3);
+    await usar("jpeg arrastado");
     const primeira = await esperarFotoDaMaquina(null);
     await expect(aviso(page, "Foto salva")).toBeVisible();
     await conferirImagemCarregada(foto);
@@ -464,8 +497,7 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     expect(Number(salvos[0].size)).toBeLessThan(4 * 1024 * 1024);
     const baixado = await adm.storage.from("equipment-photos").download(primeira!);
     const dim = dimensoesJpeg(Buffer.from(await baixado.data!.arrayBuffer()));
-    expect(Math.max(dim.largura, dim.altura)).toBe(1280);
-    expect(dim.largura / dim.altura).toBeCloseTo(2400 / 1800, 1);
+    expect(dim).toEqual({ largura: 1024, altura: 1024 });
 
     // Continua lá depois de recarregar.
     await page.reload();
@@ -476,6 +508,7 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     expect(png.length).toBeGreaterThan(5 * 1024 * 1024);
     await page.waitForTimeout(500);
     await entrada().setInputFiles({ name: "grande.png", mimeType: "image/png", buffer: png });
+    await usar("png");
     const segunda = await esperarFotoDaMaquina(primeira);
     expect(segunda).not.toBe(primeira);
     await expect.poll(() => objetos("equipment-photos", equipamentoId).map((o) => o.name)).toEqual([segunda]);
@@ -492,6 +525,7 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     // Sobe de novo: o celular precisa receber a foto no fim.
     await page.waitForTimeout(500);
     await entrada().setInputFiles({ name: "grande.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await usar("jpeg de novo");
     await esperarFotoDaMaquina(null);
     await conferirImagemCarregada(foto);
   });
