@@ -47,6 +47,8 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. As migraçõe
 
 ### Email
 
+Situação em 10/11: Site URL, Redirect URLs e os dois modelos já estão no Supabase. O envio está saindo pelo SMTP do Gmail (`smtp.gmail.com`, porta 465, senha de app), uma solução provisória até o Resend com domínio próprio. Os passos 6 e 7 valem para a troca, que não mexe no código.
+
 - [ ] **6. Preparar o Resend.**
   - Crie a conta e adicione o domínio. Um subdomínio, como `mail.suaempresa.com.br`, evita mexer no email que vocês já usam.
   - No provedor de DNS, publique os registros DKIM e SPF que o Resend mostrar.
