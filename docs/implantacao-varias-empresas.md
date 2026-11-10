@@ -28,7 +28,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. O painel aind
 ### Painel
 
 - [ ] **5. Criar o projeto na Vercel.** Só depois do passo 4.
-  - Em Add New → Project, importe o repositório `mtborges258/zelo` e escolha `frontend` em **Root Directory**.
+  - Em Add New → Project, importe o repositório `daviorlando/zelo` e escolha `frontend` em **Root Directory**.
   - Em Environment Variables, preencha:
 
     | Variável | De onde vem |
