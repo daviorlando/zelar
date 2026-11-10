@@ -13,3 +13,5 @@ build/
 # Dados da empresa: planilhas e saídas do importador não vão para o repositório
 *.xlsx
 backend/tools/importer/out/
+.vercel
+.env*
