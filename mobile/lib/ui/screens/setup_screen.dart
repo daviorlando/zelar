@@ -138,7 +138,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   List<Widget> _howItWorksStep(BuildContext context) => [
         Text('Como funciona', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        const _Explain(icon: Icons.badge, color: ZeloColors.scan, text: 'Para entrar: leia o crachá ou toque na sua foto.'),
+        const _Explain(icon: Icons.badge, color: ZeloColors.scan, text: 'Para entrar: leia o crachá ou digite seus números.'),
         const _Explain(icon: Icons.check_circle, color: ZeloColors.ok, text: 'Verde: está tudo certo.'),
         const _Explain(icon: Icons.warning, color: ZeloColors.problem, text: 'Amarelo: encontrei um problema.'),
         const _Explain(icon: Icons.block, color: ZeloColors.blocked, text: 'Azul: não consegui fazer.'),
