@@ -2,10 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { urlDoSite } from "@/lib/empresa";
+import { erroDeEnvio } from "@/lib/envio";
 import { supabaseForUser } from "@/lib/supabase/server";
 
 export type LoginState = { error?: string };
-export type EstadoEsqueci = { enviado?: boolean };
+export type EstadoEsqueci = { enviado?: boolean; erro?: string; email?: string };
 
 /** Só caminhos internos, depois de normalizar: "/gestor/..//site.com" não pode virar redirecionador para fora. */
 function destinoInterno(voltar: string): string {
@@ -31,12 +32,16 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
   redirect(destinoInterno(String(formData.get("voltar") ?? "")));
 }
 
-/** A resposta é sempre a mesma: a tela não revela quais e-mails têm conta. */
+/**
+ * Email sem conta recebe a mesma resposta de sucesso: a tela não revela quem tem conta.
+ * Recusa de envio aparece, senão a pessoa espera um email que nunca chega.
+ */
 export async function pedirNovaSenha(_: EstadoEsqueci, form: FormData): Promise<EstadoEsqueci> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   if (email) {
     const supabase = await supabaseForUser();
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDoSite("/auth/confirm") });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDoSite("/auth/confirm") });
+    if (error) return { erro: erroDeEnvio(error), email };
   }
   return { enviado: true };
 }

@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AGUARDE, convidarGestor, emailValido } from "@/lib/convite";
+import { convidarGestor, emailValido } from "@/lib/convite";
+import { erroDeEnvio } from "@/lib/envio";
 import { exigirSuperAdmin, urlDoSite } from "@/lib/empresa";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -51,7 +52,7 @@ export async function convidarOutroGestor(empresaId: string, form: FormData): Pr
 export async function reenviarAcesso(email: string): Promise<Resultado> {
   if (!(await exigirSuperAdmin())) return { erro: "Sem permissão." };
   const { error } = await supabaseAdmin().auth.resetPasswordForEmail(email, { redirectTo: urlDoSite("/auth/confirm") });
-  if (error) return { erro: error.status === 429 ? AGUARDE : `Não foi possível enviar: ${error.message}` };
+  if (error) return { erro: erroDeEnvio(error) };
   return { ok: `Link enviado para ${email}.` };
 }
 

@@ -1,11 +1,11 @@
 import "server-only";
 import { urlDoSite } from "@/lib/empresa";
+import { erroDeEnvio } from "@/lib/envio";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 export type ResultadoDoConvite = { erro?: string };
 
 const JA_TEM_CONTA = "Este e-mail já tem conta no Zelo.";
-export const AGUARDE = "Já enviamos há pouco. Aguarde um minuto para pedir de novo.";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const emailValido = (email: string) => EMAIL.test(email);
@@ -25,7 +25,7 @@ export async function convidarGestor(empresaId: string, nome: string, email: str
     redirectTo: urlDoSite("/auth/confirm"),
   });
   if (error) {
-    return { erro: error.code === "email_exists" ? JA_TEM_CONTA : `Não foi possível enviar o convite: ${error.message}` };
+    return { erro: error.code === "email_exists" ? JA_TEM_CONTA : erroDeEnvio(error) };
   }
   return vincularAEmpresa(data.user.id, empresaId);
 }
@@ -53,7 +53,7 @@ async function reenviarConvite(userId: string, empresaId: string, email: string)
   const { data: conta } = await supabase.auth.admin.getUserById(userId);
   if (perfil?.company_id !== empresaId || !conta.user?.app_metadata?.trocar_senha) return { erro: JA_TEM_CONTA };
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: urlDoSite("/auth/confirm") });
-  if (error) return { erro: error.status === 429 ? AGUARDE : `Não foi possível enviar: ${error.message}` };
+  if (error) return { erro: erroDeEnvio(error) };
   return {};
 }
 

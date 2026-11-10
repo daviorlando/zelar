@@ -16,8 +16,13 @@ export function FormularioEsqueci() {
   }
   return (
     <form action={enviar} className="flex flex-col gap-4">
+      {estado.erro && (
+        <p role="alert" className="rounded-sm border border-destructive bg-destructive-soft px-3 py-2 text-sm text-destructive">
+          {estado.erro}
+        </p>
+      )}
       <Field label="E-mail" htmlFor="email">
-        <Input id="email" name="email" type="email" autoComplete="email" required autoFocus />
+        <Input id="email" name="email" type="email" autoComplete="email" required autoFocus defaultValue={estado.email} />
       </Field>
       <Button variant="primary" size="large" disabled={ocupado}>
         {ocupado ? "Enviando…" : "Enviar link"}
