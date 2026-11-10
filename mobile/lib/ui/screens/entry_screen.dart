@@ -10,6 +10,7 @@ import '../../audio/speaker.dart';
 import '../../data/workers_repo.dart';
 import '../../domain/models.dart';
 import '../../state/device.dart';
+import '../../state/recent.dart';
 import '../../state/session.dart';
 import '../../state/setup.dart';
 import '../logo.dart';
@@ -205,6 +206,9 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
     final back = session.canGoBackTo;
     final locked = selected != null ? session.lockedFor(selected.id) : session.lockedFor(directPinKey);
     final title = Theme.of(context).textTheme.titleMedium;
+    final byId = {for (final w in workers) w.id: w};
+    // Enquanto o "Voltar" aparece, quem acabou de sair já está nele: as fotos esperam, e o teclado cabe.
+    final recent = back != null ? const <Worker>[] : [for (final id in ref.watch(recentWorkersProvider)) ?byId[id]];
 
     return Scaffold(
       body: SafeArea(
@@ -239,7 +243,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                   label: 'Ler meu crachá',
                   icon: Icons.badge,
                   color: ZeloColors.scan,
-                  compact: choosing != null || selected != null,
+                  compact: choosing != null || selected != null || recent.isNotEmpty || back != null,
                   spokenHelp: Phrases.badgeButton,
                   onPressed: _scanBadge,
                 ),
@@ -263,8 +267,15 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                         _BackIcon(onPressed: _closePhotos, onHelp: () => ref.read(speakerProvider).say(Phrases.otherPerson)),
                       ],
                     )
-                  else
+                  else ...[
+                    if (recent.isNotEmpty) ...[
+                      Text('Quem usa este celular', style: title),
+                      const SizedBox(height: 8),
+                      _RecentRow(workers: recent, onTap: _pickPhoto),
+                      const SizedBox(height: 12),
+                    ],
                     Text(workers.isEmpty ? 'A lista de funcionários ainda não chegou.' : 'Ou digite seus números', style: title),
+                  ],
                   const SizedBox(height: 12),
                   if (locked)
                     Expanded(
@@ -307,6 +318,55 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Fotos de quem já entrou neste celular, numa linha que rola de lado: o teclado continua cabendo.
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({required this.workers, required this.onTap});
+
+  final List<Worker> workers;
+  final void Function(Worker) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final w in workers)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Semantics(
+                button: true,
+                label: w.name,
+                excludeSemantics: true,
+                child: InkWell(
+                  key: Key('recent-${w.id}'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => onTap(w),
+                  child: SizedBox(
+                    width: 88,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        WorkerAvatar(worker: w, radius: 34),
+                        const SizedBox(height: 4),
+                        Text(
+                          w.name.split(' ').first,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

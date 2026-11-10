@@ -22,6 +22,7 @@ import 'ui/screens/today_screen.dart';
 import 'ui/opening.dart';
 import 'ui/theme.dart';
 import 'state/device.dart';
+import 'state/recent.dart';
 import 'state/setup.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -107,7 +108,11 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
     _lifecycle = AppLifecycleListener(onHide: silence, onPause: silence, onDetach: silence, onResume: refresh);
     // Quem entra recebe as ordens dos seus setores: guardadas primeiro (offline), depois do painel.
     ref.listenManual(sessionProvider.select((s) => s.worker), (before, worker) {
-      if (worker != null && worker.id != before?.id) ref.read(ordersProvider.notifier).loadFor(worker);
+      if (worker != null && worker.id != before?.id) {
+        ref.read(ordersProvider.notifier).loadFor(worker);
+        // A foto de quem entrou fica na entrada deste celular.
+        ref.read(recentWorkersProvider.notifier).touch(worker.id);
+      }
     });
     // O painel recusou este celular (revogado ou empresa desativada): volta a pedir código.
     ref.listenManual(deviceProvider, (_, needsCode) {
@@ -118,6 +123,7 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(sessionProvider.notifier).loadPinLocks();
+      await ref.read(recentWorkersProvider.notifier).load();
       try {
         await ref.read(deviceProvider.notifier).load();
         await ref.read(setupProvider.notifier).load();

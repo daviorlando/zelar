@@ -12,6 +12,7 @@ import 'package:zelo/data/orders_repo.dart';
 import 'package:zelo/data/workers_repo.dart';
 import 'package:zelo/domain/models.dart';
 import 'package:zelo/state/device.dart';
+import 'package:zelo/state/recent.dart';
 import 'package:zelo/state/session.dart';
 import 'package:zelo/state/setup.dart';
 import 'package:zelo/ui/widgets.dart';
@@ -486,6 +487,26 @@ void main() {
         await startApp(tester, size);
         expect(find.byKey(const Key('setup-next')), findsNothing);
         expect(find.byKey(const Key('choose-photo')), findsOneWidget);
+      });
+
+      testWidgets('quem já entrou fica com a foto na entrada; tocar nela pede só o PIN dela', (tester) async {
+        final c = await startApp(tester, size, speaker: FakeSpeaker());
+        expect(find.byKey(Key('recent-${demoWorker.id}')), findsNothing, reason: 'celular novo: ninguém usou ainda');
+        await enterPin(tester, demoPin);
+        expect(c.read(recentWorkersProvider), [demoWorker.id]);
+
+        await tapKey(tester, 'logout');
+        // Passado o prazo do "Voltar", a foto continua.
+        c.read(sessionProvider.notifier).logout();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('switch-back')), findsNothing);
+        expect(find.text('Quem usa este celular'), findsOneWidget);
+        await tapKey(tester, 'recent-${demoWorker.id}');
+        expect(find.text(demoWorker.name), findsOneWidget);
+        for (final i in demoPin) {
+          await tapKey(tester, 'pin-$i');
+        }
+        expect(c.read(sessionProvider).worker?.id, demoWorker.id);
       });
 
       testWidgets('trocar de pessoa sai na hora, não deixa respostas para o próximo e dá para voltar', (tester) async {
