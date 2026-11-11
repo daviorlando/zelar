@@ -41,7 +41,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. As migraçõe
     | `ZELAR_LEGACY_COMPANY_ID` | `e0000000-0000-4000-8000-000000000001` |
     | `NEXT_PUBLIC_SITE_URL` | o endereço do painel, sem `/` no final |
 
-    A Vercel de produção foi preenchida antes da troca de nome, com `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID` (em 11/11 `ZELAR_LEGACY_COMPANY_ID` já foi criada; `ZELAR_DEVICE_KEY` falta, porque o valor sensível não pode ser lido de volta). O painel ainda lê esses nomes quando os `ZELAR_*` faltam. Para tirar os antigos, crie os `ZELAR_*` com os mesmos valores, faça um novo deploy e só então apague os `ZELO_*`.
+    Em 11/11 a Vercel de produção passou a usar só os nomes `ZELAR_*`; as antigas `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID` foram apagadas. O código ainda aceita os nomes `ZELO_*` como reserva, caso algum ambiente antigo os use.
 
   - Os valores do Supabase são os mesmos de `frontend/.env`. Não use `SUPABASE_DB_URL` na Vercel.
   - Depois do primeiro deploy, se o endereço mudar (domínio próprio), corrija `NEXT_PUBLIC_SITE_URL` e publique de novo. Uma variável `NEXT_PUBLIC_` só vale a partir do próximo deploy.
