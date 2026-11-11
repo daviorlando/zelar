@@ -4,7 +4,7 @@ Roteiro para levar esta versão à produção. Siga na ordem: as migrações pre
 
 ## O que falta e é com você
 
-Situação em 10/11/2026: o código está em `main` e o CI passou. As migrações estão aplicadas, e o painel está no ar em https://zelo-vert.vercel.app (projeto `zelo` na Vercel, ligado ao `main`: cada envio publica sozinho). Os passos marcados **(Claude)** são feitos pelo Claude, depois do seu OK.
+Situação em 10/11/2026: o código está em `main` e o CI passou. As migrações estão aplicadas, e o painel está no ar em https://zelo-vert.vercel.app e, desde 11/11, também em https://zelar-vert.vercel.app (projeto `zelar` na Vercel, ligado ao `main`: cada envio publica sozinho). Os links dos e-mails ainda usam o endereço antigo: para trocar, inclua `https://zelar-vert.vercel.app/**` em Supabase → Authentication → URL Configuration → Redirect URLs e só então mude `NEXT_PUBLIC_SITE_URL` na Vercel e faça um novo deploy. Os passos marcados **(Claude)** são feitos pelo Claude, depois do seu OK.
 
 ### Já feito
 
@@ -41,7 +41,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. As migraçõe
     | `ZELAR_LEGACY_COMPANY_ID` | `e0000000-0000-4000-8000-000000000001` |
     | `NEXT_PUBLIC_SITE_URL` | o endereço do painel, sem `/` no final |
 
-    A Vercel de produção foi preenchida antes da troca de nome, com `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID`. O painel ainda lê esses nomes quando os `ZELAR_*` faltam. Para tirar os antigos, crie os `ZELAR_*` com os mesmos valores, faça um novo deploy e só então apague os `ZELO_*`.
+    A Vercel de produção foi preenchida antes da troca de nome, com `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID` (em 11/11 `ZELAR_LEGACY_COMPANY_ID` já foi criada; `ZELAR_DEVICE_KEY` falta, porque o valor sensível não pode ser lido de volta). O painel ainda lê esses nomes quando os `ZELAR_*` faltam. Para tirar os antigos, crie os `ZELAR_*` com os mesmos valores, faça um novo deploy e só então apague os `ZELO_*`.
 
   - Os valores do Supabase são os mesmos de `frontend/.env`. Não use `SUPABASE_DB_URL` na Vercel.
   - Depois do primeiro deploy, se o endereço mudar (domínio próprio), corrija `NEXT_PUBLIC_SITE_URL` e publique de novo. Uma variável `NEXT_PUBLIC_` só vale a partir do próximo deploy.
