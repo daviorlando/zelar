@@ -15,11 +15,12 @@ type Item = {
   device_time: string | null;
   worker: { name: string } | null;
   plan_item: {
+    id: string;
     activity: string;
     instruction_kind: string;
     item_type: string;
     measurement_unit: string | null;
-    source_row: number;
+    source_row: number | null;
     equipment: { tag: string; name: string | null } | null;
   };
   evidence: { kind: "photo" | "audio"; storage_path: string }[];
@@ -58,7 +59,7 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
        equipment:equipment_id (tag, name),
        work_order_item (id, result, measured_value, block_reason, device_time,
          worker:executed_by (name),
-         plan_item:plan_item_id (activity, instruction_kind, item_type, measurement_unit, source_row, equipment:equipment_id (tag, name)),
+         plan_item:plan_item_id (id, activity, instruction_kind, item_type, measurement_unit, source_row, equipment:equipment_id (tag, name)),
          evidence (kind, storage_path))`,
     )
     .eq("id", id)
@@ -74,7 +75,11 @@ export async function DetalheDaOrdem({ id, voltar }: { id: string; voltar: strin
 
   // Impedidos e pulados primeiro: é por eles que o gestor abriu a ordem.
   const impedido = (i: Item) => (i.result === "blocked" ? 0 : i.result === "skipped" ? 1 : 2);
-  const itens = [...ordem.work_order_item].sort((a, b) => impedido(a) - impedido(b) || a.plan_item.source_row - b.plan_item.source_row);
+  // Depois, a mesma sequência do celular (api/mobile/orders): sem linha da planilha (criado no painel) vai para o fim.
+  const fila = (i: Item) => i.plan_item.source_row ?? Number.MAX_SAFE_INTEGER;
+  const itens = [...ordem.work_order_item].sort(
+    (a, b) => impedido(a) - impedido(b) || fila(a) - fila(b) || a.plan_item.id.localeCompare(b.plan_item.id),
+  );
   const caminhos = itens.flatMap((i) => i.evidence.map((e) => e.storage_path));
   const assinadas = caminhos.length ? (await supabase.storage.from("evidence").createSignedUrls(caminhos, 3600)).data ?? [] : [];
   const url = new Map(assinadas.flatMap((s) => (s.path && s.signedUrl ? [[s.path, s.signedUrl] as const] : [])));
