@@ -1,5 +1,5 @@
-import { PageHeader } from "@/components/zelo/misc";
-import { Card } from "@/components/zelo/card";
+import { PageHeader } from "@/components/zelar/misc";
+import { Card } from "@/components/zelar/card";
 import { FormularioDeSenha } from "./formulario";
 
 export const metadata = { title: "Minha senha" };

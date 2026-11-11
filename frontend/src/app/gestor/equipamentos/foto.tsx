@@ -3,7 +3,7 @@
 import { Camera, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/zelo/button";
+import { Button } from "@/components/zelar/button";
 import { removerFotoDaMaquina, salvarFotoDaMaquina } from "./actions";
 import { Enquadrar } from "./enquadrar";
 

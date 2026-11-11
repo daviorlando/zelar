@@ -2,7 +2,7 @@ import '../domain/models.dart';
 
 // Falas de interface (escopo, seção 10: ≈ 40 áudios de interface). Ficam juntas
 // para serem trocadas pelas gravações aprovadas sem mexer nas telas.
-// Os nomes das cores acompanham ZeloColors: ok verde, problem amarelo,
+// Os nomes das cores acompanham ZelarColors: ok verde, problem amarelo,
 // blocked azul, scan e photo roxo, mic laranja.
 
 abstract final class Phrases {
@@ -29,7 +29,7 @@ abstract final class Phrases {
 
   // Microfone.
   static const micAllowed = 'Microfone liberado. Agora segure o botão laranja enquanto fala.';
-  static const micDenied = 'O celular não deixou o Zelo usar o microfone. Peça ajuda ao gestor. '
+  static const micDenied = 'O celular não deixou o Zelar usar o microfone. Peça ajuda ao gestor. '
       'Por agora, siga sem áudio: escolha a figura e toque no botão verde, Pronto.';
   static const typeNumberFirst = 'Primeiro digite o número nas teclas.';
   static String answerMissing(int missing) =>
@@ -63,9 +63,9 @@ abstract final class Phrases {
   static const allDone = 'Tudo feito por hoje. Obrigado.';
 
   // Primeira inicialização.
-  static const setupVoiceReady = 'Bem-vindo ao Zelo. A voz em português já está pronta. Toque no botão verde, Próximo.';
-  static const setupVoiceMissing = 'Bem-vindo ao Zelo. Este celular ainda não tem a voz em português para usar sem internet. '
-      'Toque no botão azul, Abrir configurações. Toque na engrenagem do serviço de voz, depois em Instalar dados de voz, e baixe Português do Brasil. Depois, volte para o Zelo.';
+  static const setupVoiceReady = 'Bem-vindo ao Zelar. A voz em português já está pronta. Toque no botão verde, Próximo.';
+  static const setupVoiceMissing = 'Bem-vindo ao Zelar. Este celular ainda não tem a voz em português para usar sem internet. '
+      'Toque no botão azul, Abrir configurações. Toque na engrenagem do serviço de voz, depois em Instalar dados de voz, e baixe Português do Brasil. Depois, volte para o Zelar.';
   static const setupHowItWorks = 'Veja como funciona. Para entrar, leia o crachá ou digite os seus quatro números. '
       'O botão verde quer dizer que está tudo certo. O amarelo, que você encontrou um problema. O azul, que não conseguiu fazer. '
       'O cinza, que você não sabe responder. '
@@ -74,7 +74,7 @@ abstract final class Phrases {
   static const setupDoneActivate = 'Tudo pronto. Agora o gestor liga este celular à empresa. Toque no botão verde, Começar.';
   static const setupNextButton = 'Botão verde: ir para o próximo passo.';
   static const setupOpenButton = 'Botão azul: abrir as configurações de voz do celular.';
-  static const setupStartButton = 'Botão verde: começar a usar o Zelo.';
+  static const setupStartButton = 'Botão verde: começar a usar o Zelar.';
 
   // Sair.
   static const logoutButton = 'Trocar de pessoa: para outra pessoa entrar neste celular. O que você fez continua guardado.';

@@ -1,11 +1,11 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { Badge } from "@/components/zelo/badge";
-import { Card } from "@/components/zelo/card";
-import { TabelaEsqueleto } from "@/components/zelo/esqueletos";
-import { Empty, Notice } from "@/components/zelo/feedback";
-import { PageHeader } from "@/components/zelo/misc";
-import { Table, TD, TH, TR } from "@/components/zelo/table";
+import { Badge } from "@/components/zelar/badge";
+import { Card } from "@/components/zelar/card";
+import { TabelaEsqueleto } from "@/components/zelar/esqueletos";
+import { Empty, Notice } from "@/components/zelar/feedback";
+import { PageHeader } from "@/components/zelar/misc";
+import { Table, TD, TH, TR } from "@/components/zelar/table";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { NovoAparelho, RevogarAparelho } from "./formularios";
 

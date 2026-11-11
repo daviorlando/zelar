@@ -71,7 +71,7 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: _warned ? ZeloColors.overdue : Colors.black26, width: 3),
+                border: Border.all(color: _warned ? ZelarColors.overdue : Colors.black26, width: 3),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -140,7 +140,7 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
                   label: 'Preciso de ajuda',
                   icon: Icons.support_agent,
                   stacked: true,
-                  color: ZeloColors.blocked,
+                  color: ZelarColors.blocked,
                   spokenHelp: Phrases.helpButton,
                   onPressed: widget.onHelp,
                 ),
@@ -153,7 +153,7 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
                   label: 'Não sei',
                   icon: Icons.help,
                   stacked: true,
-                  color: ZeloColors.skip,
+                  color: ZelarColors.skip,
                   spokenHelp: Phrases.skipButton,
                   onPressed: widget.onSkip,
                 ),
@@ -167,7 +167,7 @@ class _MeasurementPanelState extends ConsumerState<MeasurementPanel> {
                   icon: Icons.check_circle,
                   compact: true,
                   oneLine: true,
-                  color: ZeloColors.ok,
+                  color: ZelarColors.ok,
                   spokenHelp: Phrases.confirmButton,
                   disabledHint: Phrases.typeNumberFirst,
                   onPressed: value == null ? null : _confirm,
@@ -211,7 +211,7 @@ class RangeBar extends StatelessWidget {
           return Stack(
             children: [
               zone(lo, hi, const Color(0xFFC62828)),
-              zone(min - m.margin, max + m.margin, ZeloColors.problem),
+              zone(min - m.margin, max + m.margin, ZelarColors.problem),
               zone(min, max, const Color(0xFF2E7D32)),
               if (value != null)
                 Positioned(
@@ -219,7 +219,7 @@ class RangeBar extends StatelessWidget {
                   top: 0,
                   width: 12,
                   height: 32,
-                  child: const ColoredBox(color: ZeloColors.ink),
+                  child: const ColoredBox(color: ZelarColors.ink),
                 ),
             ],
           );

@@ -13,8 +13,8 @@ import {
 } from "@dnd-kit/core";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { fundoSuaveDoTom } from "@/components/zelo/badge";
-import { SensorDeMouse, SensorDeToque } from "@/components/zelo/sensores";
+import { fundoSuaveDoTom } from "@/components/zelar/badge";
+import { SensorDeMouse, SensorDeToque } from "@/components/zelar/sensores";
 import { COLUNAS, type CartaoDaOrdem, type SituacaoDaOrdem } from "@/lib/quadro";
 import { cn } from "@/lib/utils";
 import { cancelar, devolver, liberar, validar } from "./actions";

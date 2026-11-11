@@ -1,8 +1,8 @@
 import QRCode from "qrcode";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { Card } from "@/components/zelo/card";
-import { PageHeader } from "@/components/zelo/misc";
+import { Card } from "@/components/zelar/card";
+import { PageHeader } from "@/components/zelar/misc";
 import { perfilAtual } from "@/lib/empresa";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { badgeQrText, PHOTO_BUCKET, type Worker } from "@/lib/workers";
@@ -71,7 +71,7 @@ async function Badges({ searchParams }: PageProps<"/gestor/funcionarios/imprimir
             )}
           </div>
           <div className="badge-body">
-            <p className="badge-brand">Zelo · {empresa}</p>
+            <p className="badge-brand">Zelar · {empresa}</p>
             <p className="badge-name">{w.name}</p>
             <p className="badge-meta">Crachá de entrada nº {w.badge_version}</p>
           </div>

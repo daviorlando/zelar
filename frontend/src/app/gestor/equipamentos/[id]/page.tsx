@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { Card } from "@/components/zelo/card";
-import { EsqueletoDeDetalhe } from "@/components/zelo/esqueletos";
-import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
-import { PageHeader } from "@/components/zelo/misc";
-import { Table, TD, TH, TR } from "@/components/zelo/table";
+import { Card } from "@/components/zelar/card";
+import { EsqueletoDeDetalhe } from "@/components/zelar/esqueletos";
+import { PilulaDeFrequencia } from "@/components/zelar/frequencia";
+import { PageHeader } from "@/components/zelar/misc";
+import { Table, TD, TH, TR } from "@/components/zelar/table";
 import { FOTO_DE_MAQUINA, FREQUENCIAS, ROTULO_FREQUENCIA, ROTULO_TIPO, type Atividade, type Equipamento } from "@/lib/plano";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { excluirAtividade, excluirEquipamento, salvarAtividade, salvarEquipamento } from "../actions";

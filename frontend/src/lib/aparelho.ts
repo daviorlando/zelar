@@ -16,7 +16,7 @@ export const novoTokenDeAparelho = () => randomBytes(32).toString("base64url");
  * fila e tenta depois. 403 ele trata como recusa definitiva e descartaria o trabalho.
  *
  * A chave única antiga (x-device-key) vale só para os APKs já instalados e fica presa à empresa
- * de ZELO_LEGACY_COMPANY_ID. Sai quando device.last_seen_at mostrar que todos atualizaram.
+ * de ZELAR_LEGACY_COMPANY_ID. Sai quando device.last_seen_at mostrar que todos atualizaram.
  */
 export async function autenticarAparelho(request: Request): Promise<Aparelho | Response> {
   const token = request.headers.get("x-device-token");
@@ -36,8 +36,9 @@ export async function autenticarAparelho(request: Request): Promise<Aparelho | R
     return { companyId: data.company_id, deviceId: data.id, legado: false };
   }
 
-  const chave = process.env.ZELO_DEVICE_KEY;
-  const empresa = process.env.ZELO_LEGACY_COMPANY_ID;
+  // ZELO_*: nomes de antes da troca para Zelar, aceitos até a Vercel ter os novos.
+  const chave = process.env.ZELAR_DEVICE_KEY ?? process.env.ZELO_DEVICE_KEY;
+  const empresa = process.env.ZELAR_LEGACY_COMPANY_ID ?? process.env.ZELO_LEGACY_COMPANY_ID;
   const recebida = request.headers.get("x-device-key") ?? "";
   if (!chave || !empresa || !sameSecret(recebida, chave)) return naoAutorizado();
   const { data: ativa } = await supabaseAdmin().from("company").select("active").eq("id", empresa).maybeSingle();

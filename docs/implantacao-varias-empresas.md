@@ -21,7 +21,7 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. As migraçõe
     - autorizar o Claude quando ele pedir;
     - rodar você mesmo, no prompt do Claude Code:
       ```sh
-      ! cd backend && ZELO_CONFIRMA_REMOTO=aws-0-us-east-2.pooler.supabase.com npm run db:migrate
+      ! cd backend && ZELAR_CONFIRMA_REMOTO=aws-0-us-east-2.pooler.supabase.com npm run db:migrate
       ```
   - **(Claude)** Confere o resultado no banco.
 
@@ -37,9 +37,11 @@ Situação em 10/11/2026: o código está em `main` e o CI passou. As migraçõe
     | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys |
     | `SUPABASE_SECRET_KEY` | o mesmo lugar, chave secreta |
     | `CRON_SECRET` | gere com `openssl rand -base64 32` |
-    | `ZELO_DEVICE_KEY` | a mesma do APK instalado hoje; se nenhum celular usa o painel ainda, gere uma nova |
-    | `ZELO_LEGACY_COMPANY_ID` | `e0000000-0000-4000-8000-000000000001` |
+    | `ZELAR_DEVICE_KEY` | a mesma do APK instalado hoje; se nenhum celular usa o painel ainda, gere uma nova |
+    | `ZELAR_LEGACY_COMPANY_ID` | `e0000000-0000-4000-8000-000000000001` |
     | `NEXT_PUBLIC_SITE_URL` | o endereço do painel, sem `/` no final |
+
+    A Vercel de produção foi preenchida antes da troca de nome, com `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID`. O painel ainda lê esses nomes quando os `ZELAR_*` faltam. Para tirar os antigos, crie os `ZELAR_*` com os mesmos valores, faça um novo deploy e só então apague os `ZELO_*`.
 
   - Os valores do Supabase são os mesmos de `frontend/.env`. Não use `SUPABASE_DB_URL` na Vercel.
   - Depois do primeiro deploy, se o endereço mudar (domínio próprio), corrija `NEXT_PUBLIC_SITE_URL` e publique de novo. Uma variável `NEXT_PUBLIC_` só vale a partir do próximo deploy.
@@ -56,15 +58,15 @@ Situação em 10/11: Site URL, Redirect URLs e os dois modelos já estão no Sup
   - Espere o Resend marcar o domínio como verificado.
   - Crie uma chave de API só com permissão de envio, para aquele domínio.
 - [ ] **7. Ligar o Supabase ao Resend.**
-  - **Authentication → Emails → SMTP Settings:** ative o SMTP próprio com host `smtp.resend.com`, porta `465`, usuário `resend` e a chave como senha. O remetente deve ser do domínio verificado, como `nao-responder@mail.suaempresa.com.br`, com o nome "Zelo".
+  - **Authentication → Emails → SMTP Settings:** ative o SMTP próprio com host `smtp.resend.com`, porta `465`, usuário `resend` e a chave como senha. O remetente deve ser do domínio verificado, como `nao-responder@mail.suaempresa.com.br`, com o nome "Zelar".
   - **Authentication → Rate Limits:** aumente o limite de emails por hora; 30 basta para começar.
   - **Authentication → URL Configuration:** em Site URL, coloque o mesmo valor de `NEXT_PUBLIC_SITE_URL`. Em Redirect URLs, acrescente `<endereço do painel>/auth/confirm`.
   - **Authentication → Emails → Templates:**
 
     | Modelo | Assunto | Corpo |
     |---|---|---|
-    | Invite user | `Seu acesso ao Zelo` | conteúdo de `backend/supabase/templates/convite.html` |
-    | Reset password | `Criar nova senha do Zelo` | conteúdo de `backend/supabase/templates/recuperar.html` |
+    | Invite user | `Seu acesso ao Zelar` | conteúdo de `backend/supabase/templates/convite.html` |
+    | Reset password | `Criar nova senha do Zelar` | conteúdo de `backend/supabase/templates/recuperar.html` |
 
 - [ ] **8. Testar com uma caixa de email real.**
   - Em Gestores, convide um email seu: o email deve chegar, e o link deve levar a "Criar minha senha".
@@ -101,7 +103,7 @@ Situação em 10/11: Site URL, Redirect URLs e os dois modelos já estão no Sup
 - [ ] **13. Primeira empresa nova.** Só depois dos passos 1 a 12. Em `/admin/empresas`, crie a empresa e convide o gestor. Se ela tiver planilha, envie-a ao Claude. **(Claude)** Carrega a planilha.
 - [ ] **14. Desligar a chave antiga.** Quando todos os celulares estiverem na versão nova, avise o Claude.
   - **(Claude)** Confere em `device.last_seen_at`.
-  - **Você** remove `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID` na Vercel.
+  - **Você** remove `ZELAR_DEVICE_KEY` e `ZELAR_LEGACY_COMPANY_ID` na Vercel.
   - **(Claude)** Remove a compatibilidade no código.
 
 Os detalhes técnicos de cada etapa estão nas seções abaixo.
@@ -110,7 +112,7 @@ Os detalhes técnicos de cada etapa estão nas seções abaixo.
 
 - **Supabase → Authentication → Sign In / Providers:** desligue "Allow new users to sign up".
 - **Não desative o provedor Email.** Ele é o login do painel; desativá-lo impede todo mundo de entrar.
-- Faça o backup: `pg_dump "$SUPABASE_DB_URL" > zelo-antes.sql`.
+- Faça o backup: `pg_dump "$SUPABASE_DB_URL" > zelar-antes.sql`.
 - Liste as ordens diárias que têm resposta. A migração as cancela, guardando as respostas:
 
   ```sql
@@ -126,7 +128,7 @@ Os detalhes técnicos de cada etapa estão nas seções abaixo.
 
 ```sh
 cd backend
-ZELO_CONFIRMA_REMOTO=<host do banco> npm run db:migrate
+ZELAR_CONFIRMA_REMOTO=<host do banco> npm run db:migrate
 ```
 
 O painel e os APKs antigos continuam funcionando depois desta etapa, mas **não crie uma segunda empresa ainda**: o painel antigo lê tudo com a chave secreta.
@@ -138,7 +140,7 @@ Na Vercel, acrescente as variáveis e faça o deploy:
 | Variável | Valor |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | Endereço público do painel, usado nos links dos emails |
-| `ZELO_LEGACY_COMPANY_ID` | `e0000000-0000-4000-8000-000000000001` (Eco Gesso) |
+| `ZELAR_LEGACY_COMPANY_ID` | `e0000000-0000-4000-8000-000000000001` (Eco Gesso) |
 
 ## 4. Email (Resend)
 
@@ -156,7 +158,7 @@ Crie a conta em Authentication → Users, sem usar um email de gestor. Depois:
 
 ```sh
 cd backend
-ZELO_CONFIRMA_REMOTO=<host do banco> npm run db:super-admin -- --email=<email>
+ZELAR_CONFIRMA_REMOTO=<host do banco> npm run db:super-admin -- --email=<email>
 ```
 
 Ele entra pelo mesmo `/login` e cai em `/admin/empresas`.
@@ -165,7 +167,7 @@ Ele entra pelo mesmo `/login` e cai em `/admin/empresas`.
 
 ```sh
 cd mobile
-flutter build apk --release --dart-define=ZELO_API=https://<painel>
+flutter build apk --release --dart-define=ZELAR_API=https://<painel>
 ```
 
 - **Assine com a chave usada na versão instalada.** Hoje `build.gradle.kts` assina a release com a chave de debug. Com outra chave, o Android exige desinstalar, e isso apaga a fila: antes, confirme que tudo foi enviado.
@@ -179,12 +181,12 @@ Só depois de tudo acima. Em `/admin/empresas`, crie a empresa e o gestor. Para 
 
 ```sh
 cd backend
-ZELO_CONFIRMA_REMOTO=<host do banco> npm run import:load -- <planilha.xlsx> --company=<id da empresa>
+ZELAR_CONFIRMA_REMOTO=<host do banco> npm run import:load -- <planilha.xlsx> --company=<id da empresa>
 ```
 
 ## 8. Encerrar a chave antiga
 
-Quando `device.last_seen_at` mostrar que todos os celulares estão na versão nova, sem nenhum uso da chave antiga, remova `ZELO_DEVICE_KEY` e `ZELO_LEGACY_COMPANY_ID` da Vercel. Isso desliga os APKs antigos. No mesmo passo, tire de `gerar_ordens` a tolerância para quando existe uma só empresa e o campo `pin` de `/api/mobile/workers`.
+Quando `device.last_seen_at` mostrar que todos os celulares estão na versão nova, sem nenhum uso da chave antiga, remova `ZELAR_DEVICE_KEY` e `ZELAR_LEGACY_COMPANY_ID` da Vercel. Isso desliga os APKs antigos. No mesmo passo, tire de `gerar_ordens` a tolerância para quando existe uma só empresa e o campo `pin` de `/api/mobile/workers`.
 
 ## Testes locais
 

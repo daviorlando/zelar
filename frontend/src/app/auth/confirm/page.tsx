@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Logo } from "@/components/zelo/logo";
+import { Logo } from "@/components/zelar/logo";
 import { Confirmar } from "./confirmar";
 
 export const metadata = { title: "Confirmar acesso" };

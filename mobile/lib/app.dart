@@ -84,14 +84,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class ZeloApp extends ConsumerStatefulWidget {
-  const ZeloApp({super.key});
+class ZelarApp extends ConsumerStatefulWidget {
+  const ZelarApp({super.key});
 
   @override
-  ConsumerState<ZeloApp> createState() => _ZeloAppState();
+  ConsumerState<ZelarApp> createState() => _ZelarAppState();
 }
 
-class _ZeloAppState extends ConsumerState<ZeloApp> {
+class _ZelarAppState extends ConsumerState<ZelarApp> {
   late final AppLifecycleListener _lifecycle;
   Timer? _periodic;
 
@@ -162,14 +162,14 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
     // Build de produção sem endereço do painel cairia na demonstração sem ninguém perceber.
     if (kReleaseMode && !WorkersRepo.configured) {
       return MaterialApp(
-        title: 'Zelo',
+        title: 'Zelar',
         theme: buildTheme(),
         home: const Scaffold(
           body: Center(
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Text(
-                'Este aplicativo foi instalado sem o endereço do painel. Chame o suporte do Zelo.',
+                'Este aplicativo foi instalado sem o endereço do painel. Chame o suporte do Zelar.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
               ),
@@ -179,11 +179,11 @@ class _ZeloAppState extends ConsumerState<ZeloApp> {
       );
     }
     return MaterialApp.router(
-      title: 'Zelo',
+      title: 'Zelar',
       theme: buildTheme(),
       debugShowCheckedModeBanner: false,
       routerConfig: ref.watch(routerProvider),
-      builder: (context, child) => ZeloOpening(ready: ref.watch(startupProvider), child: child!),
+      builder: (context, child) => ZelarOpening(ready: ref.watch(startupProvider), child: child!),
     );
   }
 }

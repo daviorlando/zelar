@@ -72,7 +72,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
               icon: Icons.disabled_by_default,
               compact: true,
               oneLine: true,
-              color: ZeloColors.blocked,
+              color: ZelarColors.blocked,
               spokenHelp: Phrases.blockedButton,
               onPressed: () => _goReason('impedimento'),
             ),
@@ -85,7 +85,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
               icon: Icons.help,
               compact: true,
               oneLine: true,
-              color: ZeloColors.skip,
+              color: ZelarColors.skip,
               spokenHelp: Phrases.skipButton,
               onPressed: () => _record(Outcome.skipped),
             ),
@@ -101,7 +101,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
     final audio = AudioButton(text: guide, provisional: !item.recordedAudio, onPlay: () => _replays++);
     final measuring = item.type == ItemType.measurement;
 
-    return ZeloScaffold(
+    return ZelarScaffold(
       title: Text('${widget.index + 1} / ${order.items.length}'),
       // Na medição, a tela inteira rola quando a fonte grande não deixa o teclado caber.
       body: _body(measuring, Column(
@@ -159,7 +159,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 key: const Key('answer-ok'),
                 label: 'Tudo certo',
                 icon: Icons.check_circle,
-                color: ZeloColors.ok,
+                color: ZelarColors.ok,
                 spokenHelp: Phrases.okButton,
                 onPressed: () => _record(Outcome.ok),
               ),
@@ -168,8 +168,8 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 key: const Key('answer-problem'),
                 label: 'Encontrei problema',
                 icon: Icons.warning,
-                color: ZeloColors.problem,
-                foreground: ZeloColors.ink,
+                color: ZelarColors.problem,
+                foreground: ZelarColors.ink,
                 spokenHelp: Phrases.problemButton,
                 onPressed: () => _goReason('problema'),
               ),
@@ -184,7 +184,7 @@ class _ItemScreenState extends ConsumerState<ItemScreen> {
                 key: const Key('answer-done'),
                 label: 'Fiz',
                 icon: Icons.check_circle,
-                color: ZeloColors.ok,
+                color: ZelarColors.ok,
                 spokenHelp: Phrases.doneButton,
                 onPressed: () => _record(Outcome.done),
               ),
@@ -235,7 +235,7 @@ class _UndoBannerState extends ConsumerState<UndoBanner> {
       padding: const EdgeInsets.only(bottom: 12),
       child: FilledButton.tonalIcon(
         key: const Key('undo'),
-        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(ZeloSizes.minTouch)),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(ZelarSizes.minTouch)),
         icon: const Icon(Icons.undo, size: 36),
         label: const Text('Desfazer'),
         onLongPress: () => ref.read(speakerProvider).say(Phrases.undoButton),

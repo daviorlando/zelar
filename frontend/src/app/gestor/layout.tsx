@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { Avatar } from "@/components/zelo/painel/avatar";
-import { Busca } from "@/components/zelo/painel/busca";
-import { PainelShell } from "@/components/zelo/painel/shell";
-import { VoltarDoTopo } from "@/components/zelo/voltar";
+import { Avatar } from "@/components/zelar/painel/avatar";
+import { Busca } from "@/components/zelar/painel/busca";
+import { PainelShell } from "@/components/zelar/painel/shell";
+import { VoltarDoTopo } from "@/components/zelar/voltar";
 import { perfilAtual } from "@/lib/empresa";
 
 export default function GestorLayout({ children }: LayoutProps<"/gestor">) {

@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/zelo/feedback";
+import { Skeleton } from "@/components/zelar/feedback";
 
 /*
  * Esqueletos com a FORMA do conteúdo que vem.

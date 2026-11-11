@@ -4,7 +4,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, Ban, CircleHelp, Ellipsis, Undo2 } from "lucide-react";
 import Link from "next/link";
-import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
+import { PilulaDeFrequencia } from "@/components/zelar/frequencia";
 import {
   DropdownMenu,
   DropdownMenuContent,

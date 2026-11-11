@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/zelo/button";
+import { Button } from "@/components/zelar/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /*

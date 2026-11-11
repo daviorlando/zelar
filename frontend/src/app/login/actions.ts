@@ -10,7 +10,7 @@ export type EstadoEsqueci = { enviado?: boolean; erro?: string; email?: string }
 
 /** Só caminhos internos, depois de normalizar: "/gestor/..//site.com" não pode virar redirecionador para fora. */
 function destinoInterno(voltar: string): string {
-  const base = "http://zelo.invalido";
+  const base = "http://zelar.invalido";
   try {
     const url = new URL(voltar, base);
     if (url.origin === base && /^\/gestor(\/|$)/.test(url.pathname)) return url.pathname + url.search;

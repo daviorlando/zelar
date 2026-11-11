@@ -213,7 +213,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(ZeloSizes.gutter),
+          padding: const EdgeInsets.all(ZelarSizes.gutter),
           child: FillOrScroll(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -221,7 +221,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                 Row(
                   children: [
                     const Expanded(
-                      child: Align(alignment: Alignment.centerLeft, child: ZeloBrand()),
+                      child: Align(alignment: Alignment.centerLeft, child: ZelarBrand()),
                     ),
                     IconButton(iconSize: 48, tooltip: 'Ouvir de novo', icon: const Icon(Icons.volume_up), onPressed: _speakPrompt),
                   ],
@@ -231,7 +231,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                     key: const Key('switch-back'),
                     label: 'Voltar para ${back.name}',
                     icon: Icons.undo,
-                    color: ZeloColors.ok,
+                    color: ZelarColors.ok,
                     compact: true,
                     spokenHelp: Phrases.backButton(back.name),
                     onPressed: _goBack,
@@ -242,7 +242,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                   key: const Key('badge'),
                   label: 'Ler meu crachá',
                   icon: Icons.badge,
-                  color: ZeloColors.scan,
+                  color: ZelarColors.scan,
                   compact: choosing != null || selected != null || recent.isNotEmpty || back != null,
                   spokenHelp: Phrases.badgeButton,
                   onPressed: _scanBadge,
@@ -287,7 +287,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                                 ref.read(sessionProvider.notifier).reset();
                                 ref.read(eventLogProvider.notifier).add('pin', 'desbloqueado pelo facilitador');
                               },
-                        child: const Center(child: Icon(Icons.lock, size: 120, color: ZeloColors.overdue)),
+                        child: const Center(child: Icon(Icons.lock, size: 120, color: ZelarColors.overdue)),
                       ),
                     )
                   else ...[
@@ -306,7 +306,7 @@ class _EntryScreenState extends ConsumerState<EntryScreen> {
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
                       key: const Key('choose-photo'),
-                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(ZeloSizes.minTouch)),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(ZelarSizes.minTouch)),
                       onPressed: _openPhotos,
                       onLongPress: () => ref.read(speakerProvider).say(Phrases.choosePhotoButton),
                       icon: const Icon(Icons.photo_camera_front, size: 28),
@@ -547,8 +547,8 @@ class _PinDots extends StatelessWidget {
             height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: i < filled ? ZeloColors.ink : Colors.transparent,
-              border: Border.all(color: ZeloColors.ink, width: 3),
+              color: i < filled ? ZelarColors.ink : Colors.transparent,
+              border: Border.all(color: ZelarColors.ink, width: 3),
             ),
           ),
       ],

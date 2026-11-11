@@ -4,7 +4,7 @@
  *   cd frontend && set -a && . ./.env.test && set +a && npx playwright test e2e/cadastros.spec.ts
  *
  * Cada describe cria a própria empresa e contas (nome e emails com "a4-") e apaga no fim.
- * ZELO_E2E_MANTER=1 deixa os dados no banco para investigar.
+ * ZELAR_E2E_MANTER=1 deixa os dados no banco para investigar.
  */
 import { execFileSync } from "node:child_process";
 import { expect, test, type Browser, type Page } from "@playwright/test";
@@ -13,7 +13,7 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000";
 const API = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const CHAVE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 const BANCO = process.env.SUPABASE_DB_URL ?? "";
-const MAILPIT = process.env.ZELO_MAILPIT_URL ?? "http://127.0.0.1:54324";
+const MAILPIT = process.env.ZELAR_MAILPIT_URL ?? "http://127.0.0.1:54324";
 const SUPER = { email: "superadmin@teste.local", senha: "senha-de-teste-123" };
 
 for (const url of [SITE, API, BANCO, MAILPIT]) {
@@ -126,7 +126,7 @@ async function empresaComGestor(browser: Browser, admin: Page, empresa: string, 
 }
 
 function limpar(prefixo: string) {
-  if (process.env.ZELO_E2E_MANTER) return;
+  if (process.env.ZELAR_E2E_MANTER) return;
   sql(`begin;
        delete from public.worker where company_id in (select id from public.company where name like '${prefixo}%');
        delete from auth.users where email like '${prefixo}%@teste.local';
@@ -183,7 +183,7 @@ test.describe("cadastros e email", () => {
 
   test("o convite chega em português, com link para /auth/confirm e token_hash", async () => {
     const email = await esperarEmail(gestor);
-    expect(email.Subject).toBe("Seu acesso ao Zelo");
+    expect(email.Subject).toBe("Seu acesso ao Zelar");
     expect(email.HTML).toContain("Você foi convidado");
     expect(email.HTML).toContain("Criar minha senha");
     const url = new URL(email.link);
@@ -268,7 +268,7 @@ test.describe("cadastros e email", () => {
     await doGestor.goto(`/gestor/funcionarios/imprimir?ids=${id}`);
     await doGestor.emulateMedia({ media: "print" });
     await expect(doGestor.locator(".badge-brand")).toBeVisible();
-    await expect(doGestor.locator(".badge-brand")).toHaveText(`Zelo · ${empresa}`);
+    await expect(doGestor.locator(".badge-brand")).toHaveText(`Zelar · ${empresa}`);
     await expect(doGestor.locator(".badge-name")).toHaveText("Funcionario A4");
     await doGestor.emulateMedia({ media: "screen" });
   });
@@ -277,7 +277,7 @@ test.describe("cadastros e email", () => {
     await novoGestor(doGestor, "Convidado A4", convidado, "Enviar convite");
     await expect(doGestor.getByText(`Convite enviado para ${convidado}.`)).toBeVisible();
     const email = await esperarEmail(convidado);
-    expect(email.Subject).toBe("Seu acesso ao Zelo");
+    expect(email.Subject).toBe("Seu acesso ao Zelar");
 
     const conta = lerUsuario(convidado);
     expect(conta?.role).toBe("manager");
@@ -321,13 +321,13 @@ test.describe("cadastros e email", () => {
     const antes = usuario(gestor);
     for (const modo of ["Enviar convite", "Usar senha temporária"] as const) {
       await novoGestor(doGestor, "Repetido", gestor, modo);
-      await expect(doGestor.getByRole("alert").filter({ hasText: "Este e-mail já tem conta no Zelo." })).toBeVisible();
+      await expect(doGestor.getByRole("alert").filter({ hasText: "Este e-mail já tem conta no Zelar." })).toBeVisible();
     }
 
     const nomeRepetido = `${prefixo} Repetida`;
     await admin.goto("/admin/empresas");
     await criarEmpresa(admin, nomeRepetido, "Repetido", gestor);
-    await expect(admin.getByRole("alert").filter({ hasText: "Este e-mail já tem conta no Zelo." })).toBeVisible();
+    await expect(admin.getByRole("alert").filter({ hasText: "Este e-mail já tem conta no Zelar." })).toBeVisible();
     expect(idDaEmpresa(nomeRepetido)).toBe("");
     await admin.getByRole("button", { name: "Voltar" }).click();
     expect(usuario(gestor)).toBe(antes);
@@ -342,10 +342,10 @@ test.describe("cadastros e email", () => {
     await page.getByRole("button", { name: "Enviar link" }).waitFor();
     await page.getByLabel("E-mail").fill(temporario);
     await page.getByRole("button", { name: "Enviar link" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Se este e-mail tiver conta no Zelo" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Se este e-mail tiver conta no Zelar" })).toBeVisible();
 
     const email = await esperarEmail(temporario, quantas + 1);
-    expect(email.Subject).toBe("Criar nova senha do Zelo");
+    expect(email.Subject).toBe("Criar nova senha do Zelar");
     expect(email.HTML).toContain("Recebemos um pedido");
     const url = new URL(email.link);
     expect(url.origin).toBe(SITE);
@@ -378,7 +378,7 @@ test.describe("cadastros e email", () => {
     await page.goto("/login/esqueci");
     await page.getByLabel("E-mail").fill(inexistente);
     await page.getByRole("button", { name: "Enviar link" }).click();
-    await expect(page.getByRole("status")).toHaveText("Se este e-mail tiver conta no Zelo, o link chega em alguns minutos. Confira também a caixa de spam.");
+    await expect(page.getByRole("status")).toHaveText("Se este e-mail tiver conta no Zelar, o link chega em alguns minutos. Confira também a caixa de spam.");
     await page.waitForTimeout(3_000);
     expect((await resumos(inexistente)).length).toBe(0);
     expect(lerUsuario(inexistente)).toBeUndefined();
@@ -467,7 +467,7 @@ test.describe("cadastros e email", () => {
     await expect(admin.getByText(`Link enviado para ${convidado}.`)).toBeVisible();
 
     const email = await esperarEmail(convidado, quantas + 1);
-    expect(email.Subject).toBe("Criar nova senha do Zelo");
+    expect(email.Subject).toBe("Criar nova senha do Zelar");
     const page = await novaPagina(browser);
     await page.goto(email.link);
     await page.getByRole("button", { name: "Continuar" }).click();

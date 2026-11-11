@@ -3,7 +3,7 @@
     <!-- Do Android 12 em diante, o sistema desenha a abertura e ignora launch_background. -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
-        <item name="android:windowSplashScreenBackground">@color/zelo_fundo</item>
+        <item name="android:windowSplashScreenBackground">@color/zelar_fundo</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
     </style>
 </resources>

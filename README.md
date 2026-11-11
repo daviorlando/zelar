@@ -1,4 +1,4 @@
-# Zelo — manutenção da Eco Gesso
+# Zelar — manutenção da Eco Gesso
 
 Aplicativo de campo acessível (inclusive para quem não lê), offline-first, com painel web para gestores. Escopo: `Escopo_App_Manutencao_Eco_Gesso_v0_5.md`.
 
@@ -48,10 +48,10 @@ O celular baixa a lista pelo painel (`GET /api/mobile/workers`, com a chave do a
 
 ```bash
 cd mobile
-flutter run --dart-define=ZELO_API=http://IP-DO-COMPUTADOR:3000 --dart-define=ZELO_DEVICE_KEY=<ZELO_DEVICE_KEY do .env.local>
+flutter run --dart-define=ZELAR_API=http://IP-DO-COMPUTADOR:3000 --dart-define=ZELAR_DEVICE_KEY=<ZELAR_DEVICE_KEY do .env.local>
 ```
 
-Sem `ZELO_API`, o app usa o trabalhador de teste (crachá: QR com o texto `zelo:cracha:demo-cracha-teste`).
+Sem `ZELAR_API`, o app usa o trabalhador de teste (crachá: QR com o texto `zelar:cracha:demo-cracha-teste`).
 
 ## Protótipo do app de campo (Sprint 1)
 

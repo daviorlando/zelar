@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/components/zelo/button";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { Field, Input } from "@/components/zelar/input";
 import { pedirNovaSenha, type EstadoEsqueci } from "../actions";
 
 export function FormularioEsqueci() {
@@ -10,7 +10,7 @@ export function FormularioEsqueci() {
   if (estado.enviado) {
     return (
       <p role="status" className="rounded-sm border border-border bg-muted px-3 py-2 text-sm text-foreground">
-        Se este e-mail tiver conta no Zelo, o link chega em alguns minutos. Confira também a caixa de spam.
+        Se este e-mail tiver conta no Zelar, o link chega em alguns minutos. Confira também a caixa de spam.
       </p>
     );
   }

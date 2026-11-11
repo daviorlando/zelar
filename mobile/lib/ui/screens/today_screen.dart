@@ -71,7 +71,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     final orders = _visible(ref.watch(ordersProvider), session);
     final load = ref.watch(ordersLoadProvider);
 
-    return ZeloScaffold(
+    return ZelarScaffold(
       showHome: false,
       action: const _LogoutButton(),
       title: GestureDetector(
@@ -103,7 +103,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                       child: const Column(
                         key: Key('orders-failed'),
                         children: [
-                          Icon(Icons.cloud_off, size: 120, color: ZeloColors.overdue),
+                          Icon(Icons.cloud_off, size: 120, color: ZelarColors.overdue),
                           SizedBox(height: 16),
                           Text(
                             'Não baixou. Puxe para baixo.',
@@ -118,7 +118,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                       onTap: _speak,
                       child: const Column(
                         children: [
-                          Icon(Icons.task_alt, size: 120, color: ZeloColors.ok),
+                          Icon(Icons.task_alt, size: 120, color: ZelarColors.ok),
                           SizedBox(height: 16),
                           Text(
                             'Nada para hoje',
@@ -216,7 +216,7 @@ class _OrderCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Faixa distinta para devolvidos e atrasados: cor + ícone.
-                Container(width: 12, color: returned || released ? ZeloColors.returned : (order.overdue && !finished ? ZeloColors.overdue : Colors.transparent)),
+                Container(width: 12, color: returned || released ? ZelarColors.returned : (order.overdue && !finished ? ZelarColors.overdue : Colors.transparent)),
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: SizedBox(
@@ -237,12 +237,12 @@ class _OrderCard extends ConsumerWidget {
                           spacing: 8,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            if (returned) Icon(Icons.undo, key: Key('returned-${order.id}'), color: ZeloColors.returned, size: 32),
-                            if (released) Icon(Icons.lock_open, key: Key('released-${order.id}'), color: ZeloColors.returned, size: 32),
-                            if (blocked > 0 && !finished) Icon(Icons.block, key: Key('blocked-${order.id}'), color: ZeloColors.blocked, size: 32),
+                            if (returned) Icon(Icons.undo, key: Key('returned-${order.id}'), color: ZelarColors.returned, size: 32),
+                            if (released) Icon(Icons.lock_open, key: Key('released-${order.id}'), color: ZelarColors.returned, size: 32),
+                            if (blocked > 0 && !finished) Icon(Icons.block, key: Key('blocked-${order.id}'), color: ZelarColors.blocked, size: 32),
                             _FrequencyTag(order.frequency),
-                            if (order.overdue && !finished) const Icon(Icons.alarm, color: ZeloColors.overdue, size: 32),
-                            if (hasProblem) const Icon(Icons.warning, color: ZeloColors.problem, size: 32),
+                            if (order.overdue && !finished) const Icon(Icons.alarm, color: ZelarColors.overdue, size: 32),
+                            if (hasProblem) const Icon(Icons.warning, color: ZelarColors.problem, size: 32),
                           ],
                         ),
                       ],
@@ -274,7 +274,7 @@ class _FrequencyTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: ZeloColors.ink.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: ZelarColors.ink.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(20)),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(capitalize(frequency.spoken), maxLines: 1, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),

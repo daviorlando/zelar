@@ -93,12 +93,12 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(ZeloSizes.gutter),
+          padding: const EdgeInsets.all(ZelarSizes.gutter),
           child: FillOrScroll(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Align(alignment: Alignment.centerLeft, child: ZeloBrand()),
+                const Align(alignment: Alignment.centerLeft, child: ZelarBrand()),
                 const SizedBox(height: 24),
                 Text('Ligar este celular à empresa', style: text.titleLarge),
                 const SizedBox(height: 8),
@@ -160,7 +160,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                 ],
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, key: const Key('activation-error'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ZeloColors.overdue)),
+                  Text(_error!, key: const Key('activation-error'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ZelarColors.overdue)),
                 ],
                 const SizedBox(height: 8),
                 Align(
@@ -177,7 +177,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                   key: const Key('activation-send'),
                   label: _busy ? 'Conferindo…' : 'Ligar',
                   icon: Icons.check_circle,
-                  color: ZeloColors.ok,
+                  color: ZelarColors.ok,
                   spokenHelp: Phrases.activationButton,
                   disabledHint: _byCode ? Phrases.activationCode : Phrases.activation,
                   onPressed: _busy || !_ready ? null : _send,

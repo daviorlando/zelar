@@ -70,7 +70,7 @@ class _FacilitatorScreenState extends ConsumerState<FacilitatorScreen> {
           Text(WorkersRepo.configured
               ? 'Funcionários: ${ref.watch(workersProvider).length} (painel ${WorkersRepo.api})'
                   '${ref.read(workersProvider.notifier).lastError == null ? '' : ' — sem atualizar: ${ref.read(workersProvider.notifier).lastError}'}'
-              : 'Funcionários: só o de teste (app sem ZELO_API)'),
+              : 'Funcionários: só o de teste (app sem ZELAR_API)'),
           Builder(builder: (context) {
             final outbox = ref.watch(outboxProvider);
             final orders = ref.watch(ordersProvider);

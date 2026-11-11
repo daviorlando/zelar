@@ -2,11 +2,11 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { logout } from "@/app/login/actions";
-import { Button } from "@/components/zelo/button";
-import { Logo } from "@/components/zelo/logo";
+import { Button } from "@/components/zelar/button";
+import { Logo } from "@/components/zelar/logo";
 import { exigirSuperAdmin } from "@/lib/empresa";
 
-export const metadata = { title: { default: "Administração", template: "%s · Zelo" } };
+export const metadata = { title: { default: "Administração", template: "%s · Zelar" } };
 
 /** Quem não é super-admin não vê esta área. Cada ação confere de novo: o layout não protege as ações. */
 async function SoSuperAdmin({ children }: { children: React.ReactNode }) {

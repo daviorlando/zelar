@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/zelo/button";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { Field, Input } from "@/components/zelar/input";
 import { trocarMinhaSenha, type Resultado } from "../gestores/actions";
 
 export function FormularioDeSenha({ depois = "/gestor/quadro" }: { depois?: string }) {

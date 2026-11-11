@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/zelo/button";
-import { ConfirmDialog } from "@/components/zelo/confirmacao";
-import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { ConfirmDialog } from "@/components/zelar/confirmacao";
+import { PilulaDeFrequencia } from "@/components/zelar/frequencia";
+import { Field, Input } from "@/components/zelar/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FREQUENCIAS, type Frequencia } from "@/lib/plano";
 import { periodosDoSetor, primeiroPeriodo } from "@/lib/schedule";

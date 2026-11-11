@@ -248,11 +248,11 @@ otp_expiry = 3600
 
 # Em produção, cole os mesmos textos em Authentication → Email Templates.
 [auth.email.template.invite]
-subject = "Seu acesso ao Zelo"
+subject = "Seu acesso ao Zelar"
 content_path = "./supabase/templates/convite.html"
 
 [auth.email.template.recovery]
-subject = "Criar nova senha do Zelo"
+subject = "Criar nova senha do Zelar"
 content_path = "./supabase/templates/recuperar.html"
 
 # Uncomment to customize notification email template

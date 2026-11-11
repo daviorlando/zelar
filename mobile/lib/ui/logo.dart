@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Marca do Zelo: o escudo com o Z de frontend/src/app/icon.svg, nas mesmas medidas.
+/// Marca do Zelar: o escudo com o Z de frontend/src/app/icon.svg, nas mesmas medidas.
 /// Desenhada em código, e não como imagem, para já existir no primeiro quadro da abertura.
-class ZeloLogo extends StatelessWidget {
-  const ZeloLogo({super.key, required this.size});
+class ZelarLogo extends StatelessWidget {
+  const ZelarLogo({super.key, required this.size});
 
   final double size;
 
@@ -12,36 +12,36 @@ class ZeloLogo extends StatelessWidget {
 }
 
 /// Logo e nome lado a lado. O texto segue o tamanho de fonte do celular.
-class ZeloBrand extends StatelessWidget {
-  const ZeloBrand({super.key, this.logoSize = 44});
+class ZelarBrand extends StatelessWidget {
+  const ZelarBrand({super.key, this.logoSize = 44});
 
   final double logoSize;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Zelo',
+      label: 'Zelar',
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ZeloLogo(size: logoSize),
+          ZelarLogo(size: logoSize),
           const SizedBox(width: 8),
-          const Flexible(child: ZeloName(fontSize: 26)),
+          const Flexible(child: ZelarName(fontSize: 26)),
         ],
       ),
     );
   }
 }
 
-class ZeloName extends StatelessWidget {
-  const ZeloName({super.key, required this.fontSize});
+class ZelarName extends StatelessWidget {
+  const ZelarName({super.key, required this.fontSize});
 
   final double fontSize;
 
   @override
   Widget build(BuildContext context) => Text(
-        'Zelo',
+        'Zelar',
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.fade,

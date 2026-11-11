@@ -54,7 +54,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   /// gravando sozinho até o limite.
   var _holding = false;
 
-  /// O celular não deixa o Zelo usar o microfone: "Outro" segue sem áudio.
+  /// O celular não deixa o Zelar usar o microfone: "Outro" segue sem áudio.
   var _noMic = false;
 
   /// A resposta levou a foto e o áudio: a fila copia e apaga. Senão, apagam ao sair.
@@ -178,8 +178,8 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.kind == ReasonKind.problem ? ZeloColors.problem : ZeloColors.blocked;
-    return ZeloScaffold(
+    final accent = widget.kind == ReasonKind.problem ? ZelarColors.problem : ZelarColors.blocked;
+    return ZelarScaffold(
       title: Icon(widget.kind == ReasonKind.problem ? Icons.warning : Icons.disabled_by_default, color: accent, size: 40),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -223,7 +223,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(icon, size: 56, color: ZeloColors.ink),
+                                  Icon(icon, size: 56, color: ZelarColors.ink),
                                   const SizedBox(height: 4),
                                   Text(
                                     label,
@@ -248,7 +248,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
             children: [
               Expanded(
                 child: _MediaButton(
-                  color: ZeloColors.photo,
+                  color: ZelarColors.photo,
                   icon: Icons.photo_camera,
                   done: _photoPath != null,
                   label: 'Tirar foto',
@@ -266,7 +266,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
                   // O pedido de permissão (ou uma ligação) cancela o toque em vez de soltar.
                   onLongPressCancel: _stopRecording,
                   child: _MediaButton(
-                    color: ZeloColors.mic,
+                    color: ZelarColors.mic,
                     icon: _recording ? Icons.fiber_manual_record : Icons.mic,
                     done: _audioPath != null,
                     recording: _recording,
@@ -289,7 +289,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
               icon: Icons.help,
               compact: true,
               oneLine: true,
-              color: ZeloColors.skip,
+              color: ZelarColors.skip,
               spokenHelp: Phrases.skipButton,
               onPressed: _skip,
             ),
@@ -302,7 +302,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
               icon: Icons.check_circle,
               compact: true,
               oneLine: true,
-              color: ZeloColors.ok,
+              color: ZelarColors.ok,
               spokenHelp: Phrases.readyButton,
               disabledHint: _reason == null ? Phrases.chooseFigureFirst : Phrases.recordOtherFirst,
               onPressed: _canFinish ? _finish : null,
@@ -342,10 +342,10 @@ class _MediaButton extends StatelessWidget {
       label: label,
       child: Material(
         // Gravando: vermelho, para ficar claro que o microfone está ligado.
-        color: recording ? ZeloColors.overdue : color,
+        color: recording ? ZelarColors.overdue : color,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: ZeloColors.ink, width: 2),
+          side: const BorderSide(color: ZelarColors.ink, width: 2),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -364,7 +364,7 @@ class _MediaButton extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 18,
                       backgroundColor: Colors.white,
-                      child: Icon(Icons.check_circle, color: ZeloColors.ok, size: 32),
+                      child: Icon(Icons.check_circle, color: ZelarColors.ok, size: 32),
                     ),
                   ),
               ],

@@ -7,7 +7,7 @@
 @import "../styles/tokens.css";
 
 /*
- * Paleta Zelo — azul-marinho. Redefine os `--sig-*` de cor herdados do
+ * Paleta Zelar — azul-marinho. Redefine os `--sig-*` de cor herdados do
  * sigagroia: a estrutura e os componentes vêm de lá, a identidade não (o verde
  * neon é de outro produto). Todo o mapeamento abaixo segue sozinho.
  */
@@ -78,7 +78,7 @@
 }
 
 /*
- * Tema do painel do Zelo: linguagem "vidro floresta" (v2) do Figma SIG Agro IA,
+ * Tema do painel do Zelar: linguagem "vidro floresta" (v2) do Figma SIG Agro IA,
  * estrutura de nomes do shadcn (como no sigagroia-front). Escuro na base, claro
  * em `.light`; o script de `layout.tsx` decide antes da primeira pintura.
  */

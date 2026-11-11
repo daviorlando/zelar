@@ -90,7 +90,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(ZeloSizes.gutter),
+          padding: const EdgeInsets.all(ZelarSizes.gutter),
           child: ListView(
             children: [
               if (_muted) ...[const _MutedWarning(), const SizedBox(height: 12)],
@@ -104,7 +104,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(padding: const EdgeInsets.all(ZeloSizes.gutter), child: _actions()),
+        child: Padding(padding: const EdgeInsets.all(ZelarSizes.gutter), child: _actions()),
       ),
     );
   }
@@ -114,40 +114,40 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     if (!_checked) return const [Center(child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()))];
     if (!_voiceMissing) {
       return [
-        const Icon(Icons.record_voice_over, size: 120, color: ZeloColors.ok),
+        const Icon(Icons.record_voice_over, size: 120, color: ZelarColors.ok),
         const SizedBox(height: 16),
         Text('A voz está pronta', textAlign: TextAlign.center, style: style.titleLarge),
         const SizedBox(height: 8),
-        const Text('O Zelo fala em português, mesmo sem internet.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20)),
+        const Text('O Zelar fala em português, mesmo sem internet.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20)),
       ];
     }
     return [
-      const Icon(Icons.record_voice_over, size: 96, color: ZeloColors.overdue),
+      const Icon(Icons.record_voice_over, size: 96, color: ZelarColors.overdue),
       const SizedBox(height: 12),
       Text('Falta instalar a voz', textAlign: TextAlign.center, style: style.titleLarge),
       const SizedBox(height: 8),
-      const Text('Sem ela, o Zelo pode ficar mudo quando não houver internet.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20)),
+      const Text('Sem ela, o Zelar pode ficar mudo quando não houver internet.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20)),
       const SizedBox(height: 16),
       const _Step(number: 1, text: 'Toque em Abrir configurações.'),
       const _Step(number: 2, text: 'Toque na engrenagem do serviço de voz e em Instalar dados de voz.'),
       const _Step(number: 3, text: 'Baixe Português (Brasil).'),
-      const _Step(number: 4, text: 'Volte para o Zelo.'),
+      const _Step(number: 4, text: 'Volte para o Zelar.'),
     ];
   }
 
   List<Widget> _howItWorksStep(BuildContext context) => [
         Text('Como funciona', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        const _Explain(icon: Icons.badge, color: ZeloColors.scan, text: 'Para entrar: leia o crachá ou digite seus números.'),
-        const _Explain(icon: Icons.check_circle, color: ZeloColors.ok, text: 'Verde: está tudo certo.'),
-        const _Explain(icon: Icons.warning, color: ZeloColors.problem, text: 'Amarelo: encontrei um problema.'),
-        const _Explain(icon: Icons.block, color: ZeloColors.blocked, text: 'Azul: não consegui fazer.'),
-        const _Explain(icon: Icons.help, color: ZeloColors.skip, text: 'Cinza: não sei responder.'),
-        const _Explain(icon: Icons.touch_app, color: ZeloColors.ink, text: 'Segure um botão para ouvir o que ele faz.'),
+        const _Explain(icon: Icons.badge, color: ZelarColors.scan, text: 'Para entrar: leia o crachá ou digite seus números.'),
+        const _Explain(icon: Icons.check_circle, color: ZelarColors.ok, text: 'Verde: está tudo certo.'),
+        const _Explain(icon: Icons.warning, color: ZelarColors.problem, text: 'Amarelo: encontrei um problema.'),
+        const _Explain(icon: Icons.block, color: ZelarColors.blocked, text: 'Azul: não consegui fazer.'),
+        const _Explain(icon: Icons.help, color: ZelarColors.skip, text: 'Cinza: não sei responder.'),
+        const _Explain(icon: Icons.touch_app, color: ZelarColors.ink, text: 'Segure um botão para ouvir o que ele faz.'),
       ];
 
   List<Widget> _doneStep(BuildContext context) => [
-        const Icon(Icons.task_alt, size: 120, color: ZeloColors.ok),
+        const Icon(Icons.task_alt, size: 120, color: ZelarColors.ok),
         const SizedBox(height: 16),
         Text('Tudo pronto', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
@@ -163,7 +163,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       key: const Key('setup-next'),
       label: 'Próximo',
       icon: Icons.arrow_forward,
-      color: ZeloColors.ok,
+      color: ZelarColors.ok,
       spokenHelp: Phrases.setupNextButton,
       onPressed: () => _goTo(_step + 1),
     );
@@ -176,7 +176,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               key: const Key('setup-open-voice'),
               label: 'Abrir configurações',
               icon: Icons.settings,
-              color: ZeloColors.blocked,
+              color: ZelarColors.blocked,
               spokenHelp: Phrases.setupOpenButton,
               onPressed: () => ref.read(systemSettingsProvider).openVoiceSettings(),
             ),
@@ -184,7 +184,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             // Pode não haver internet na hora: não trava quem está configurando.
             OutlinedButton(
               key: const Key('setup-later'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(ZeloSizes.minTouch)),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(ZelarSizes.minTouch)),
               onPressed: () => _goTo(1),
               child: const Text('Fazer depois', style: TextStyle(fontSize: 20)),
             ),
@@ -195,7 +195,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
           key: const Key('setup-finish'),
           label: 'Começar',
           icon: Icons.check_circle,
-          color: ZeloColors.ok,
+          color: ZelarColors.ok,
           spokenHelp: Phrases.setupStartButton,
           onPressed: _finish,
         ),
@@ -210,12 +210,12 @@ class _MutedWarning extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         key: const Key('setup-muted'),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: ZeloColors.problem, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: ZelarColors.problem, borderRadius: BorderRadius.circular(16)),
         child: const Row(
           children: [
-            Icon(Icons.volume_off, size: 40, color: ZeloColors.ink),
+            Icon(Icons.volume_off, size: 40, color: ZelarColors.ink),
             SizedBox(width: 12),
-            Expanded(child: Text('O som está desligado. Aumente o volume para ouvir o Zelo.', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600))),
+            Expanded(child: Text('O som está desligado. Aumente o volume para ouvir o Zelar.', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600))),
           ],
         ),
       );

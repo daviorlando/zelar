@@ -5,24 +5,24 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:zelo/app.dart';
-import 'package:zelo/audio/phrases.dart';
-import 'package:zelo/audio/speaker.dart';
+import 'package:zelar/app.dart';
+import 'package:zelar/audio/phrases.dart';
+import 'package:zelar/audio/speaker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:record/record.dart';
-import 'package:zelo/data/fixtures.dart';
-import 'package:zelo/data/orders_repo.dart';
-import 'package:zelo/data/workers_repo.dart';
-import 'package:zelo/domain/models.dart';
-import 'package:zelo/domain/reasons.dart';
-import 'package:zelo/state/device.dart';
-import 'package:zelo/state/outbox.dart';
-import 'package:zelo/state/recent.dart';
-import 'package:zelo/state/session.dart';
-import 'package:zelo/state/setup.dart';
-import 'package:zelo/ui/screens/reason_screen.dart';
-import 'package:zelo/ui/widgets.dart';
+import 'package:zelar/data/fixtures.dart';
+import 'package:zelar/data/orders_repo.dart';
+import 'package:zelar/data/workers_repo.dart';
+import 'package:zelar/domain/models.dart';
+import 'package:zelar/domain/reasons.dart';
+import 'package:zelar/state/device.dart';
+import 'package:zelar/state/outbox.dart';
+import 'package:zelar/state/recent.dart';
+import 'package:zelar/state/session.dart';
+import 'package:zelar/state/setup.dart';
+import 'package:zelar/ui/screens/reason_screen.dart';
+import 'package:zelar/ui/widgets.dart';
 
 WorkOrder orderById(String id) => demoOrders.firstWhere((o) => o.id == id);
 
@@ -132,7 +132,7 @@ Future<ProviderContainer> startApp(WidgetTester tester, Size size, {Speaker? spe
     overrides: [if (speaker != null) speakerProvider.overrideWithValue(speaker), ...overrides.cast()],
   );
   addTearDown(container.dispose);
-  await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const ZeloApp()));
+  await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const ZelarApp()));
   await tester.pumpAndSettle();
   return container;
 }
@@ -258,7 +258,7 @@ void main() {
       addTearDown(tester.view.reset);
       final c = ProviderContainer(overrides: [speakerProvider.overrideWithValue(voz)]);
       addTearDown(c.dispose);
-      await tester.pumpWidget(UncontrolledProviderScope(container: c, child: const ZeloApp()));
+      await tester.pumpWidget(UncontrolledProviderScope(container: c, child: const ZelarApp()));
       expect(find.byKey(const Key('opening')), findsOneWidget);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('opening')), findsNothing);
@@ -470,14 +470,21 @@ void main() {
       testWidgets('crachá entra direto; crachá desconhecido, antigo ou de desativado não', (tester) async {
         final c = await startApp(tester, size);
         final session = c.read(sessionProvider.notifier);
-        expect(session.tryBadge('zelo:cracha:outro-codigo'), isNull);
+        expect(session.tryBadge('zelar:cracha:outro-codigo'), isNull);
         expect(session.tryBadge('D - RT - ME'), isNull); // etiqueta de equipamento
-        expect(session.tryBadge('demo-cracha-teste'), isNull); // sem o prefixo do Zelo
+        expect(session.tryBadge('demo-cracha-teste'), isNull); // sem o prefixo do Zelar
         expect(c.read(sessionProvider).worker, isNull);
         expect(c.read(sessionProvider).pinFails, isEmpty); // crachá errado não bloqueia o PIN
 
-        expect(session.tryBadge('zelo:cracha:demo-cracha-teste')?.id, demoWorker.id);
+        expect(session.tryBadge('zelar:cracha:demo-cracha-teste')?.id, demoWorker.id);
         expect(c.read(sessionProvider).worker?.id, demoWorker.id);
+      });
+
+      testWidgets('crachá impresso antes da troca de nome (zelo:cracha:) continua entrando', (tester) async {
+        final c = await startApp(tester, size);
+        final session = c.read(sessionProvider.notifier);
+        expect(session.tryBadge('zelo:cracha:'), isNull);
+        expect(session.tryBadge('zelo:cracha:demo-cracha-teste')?.id, demoWorker.id);
       });
 
       testWidgets('inspeção + ação até concluir a ordem', (tester) async {
@@ -849,7 +856,7 @@ void main() {
 
         expect(find.byKey(const Key('sync-attention')), findsNothing);
         // Recusa do painel na fila: aí sim o aviso aparece.
-        final dir = Directory.systemTemp.createTempSync('zelo-aviso');
+        final dir = Directory.systemTemp.createTempSync('zelar-aviso');
         final original = OutboxNotifier.directory;
         addTearDown(() => OutboxNotifier.directory = original);
         OutboxNotifier.directory = () async => dir;
@@ -1087,7 +1094,7 @@ void main() {
     addTearDown(c.dispose);
     final session = c.read(sessionProvider.notifier);
     final w = c.read(workersProvider).single;
-    expect(session.tryBadge('zelo:cracha:demo-cracha-teste'), isNull);
+    expect(session.tryBadge('zelar:cracha:demo-cracha-teste'), isNull);
     expect(session.tryPin(w, demoPin), isFalse);
   });
 

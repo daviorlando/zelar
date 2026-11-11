@@ -3,9 +3,9 @@
 import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/zelo/button";
-import { ConfirmDialog } from "@/components/zelo/confirmacao";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { ConfirmDialog } from "@/components/zelar/confirmacao";
+import { Field, Input } from "@/components/zelar/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { gerarCodigo, revogarAparelho } from "./actions";
 
@@ -31,7 +31,7 @@ export function NovoAparelho() {
               <>
                 <DialogHeader>
                   <DialogTitle>Código do celular</DialogTitle>
-                  <DialogDescription>Digite no celular ao abrir o Zelo. Vale por 15 minutos e uma só vez.</DialogDescription>
+                  <DialogDescription>Digite no celular ao abrir o Zelar. Vale por 15 minutos e uma só vez.</DialogDescription>
                 </DialogHeader>
                 <p className="num select-all text-center text-3xl font-medium tracking-widest text-foreground">
                   {codigo.slice(0, 4)} {codigo.slice(4)}

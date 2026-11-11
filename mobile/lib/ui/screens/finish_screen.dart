@@ -75,7 +75,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
                 key: const Key('conclude-fix'),
                 label: 'Corrigir',
                 icon: Icons.edit,
-                color: ZeloColors.blocked,
+                color: ZelarColors.blocked,
                 compact: true,
                 spokenHelp: Phrases.fixButton,
                 onPressed: () => Navigator.of(dialog).pop(false),
@@ -85,7 +85,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
                 key: const Key('conclude-anyway'),
                 label: 'Concluir assim mesmo',
                 icon: Icons.check_circle,
-                color: ZeloColors.ok,
+                color: ZelarColors.ok,
                 compact: true,
                 spokenHelp: Phrases.concludeAnywayButton,
                 onPressed: () => Navigator.of(dialog).pop(true),
@@ -118,7 +118,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
     final complete = missing == 0 && blocked == 0;
     final summary = _summary(answers);
 
-    return ZeloScaffold(
+    return ZelarScaffold(
       title: Text(order.equipment.shortName),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -146,7 +146,7 @@ class _FinishScreenState extends ConsumerState<FinishScreen> {
         key: const Key('conclude'),
         label: 'Concluir',
         icon: Icons.check_circle,
-        color: ZeloColors.ok,
+        color: ZelarColors.ok,
         spokenHelp: Phrases.concludeButton,
         disabledHint: missing > 0 ? Phrases.answerMissing(missing) : Phrases.waitingManager(blocked),
         onPressed: complete ? _tryConclude : null,
@@ -164,18 +164,18 @@ class _ResultRow extends ConsumerWidget {
   final VoidCallback onTap;
 
   (IconData, Color) get _status => switch (answer) {
-        null => (Icons.help, ZeloColors.overdue),
-        Answer(outcome: Outcome.skipped) => (Icons.help, ZeloColors.skip),
-        final a when a.isProblem => (Icons.warning, ZeloColors.problem),
-        Answer(outcome: Outcome.blocked || Outcome.help) => (Icons.disabled_by_default, ZeloColors.blocked),
-        _ => (Icons.check_circle, ZeloColors.ok),
+        null => (Icons.help, ZelarColors.overdue),
+        Answer(outcome: Outcome.skipped) => (Icons.help, ZelarColors.skip),
+        final a when a.isProblem => (Icons.warning, ZelarColors.problem),
+        Answer(outcome: Outcome.blocked || Outcome.help) => (Icons.disabled_by_default, ZelarColors.blocked),
+        _ => (Icons.check_circle, ZelarColors.ok),
       };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (icon, color) = _status;
     return ListTile(
-      minTileHeight: ZeloSizes.minTouch + 8,
+      minTileHeight: ZelarSizes.minTouch + 8,
       leading: Icon(component.icon, size: 40),
       title: Text(item.shortText, style: const TextStyle(fontSize: 18)),
       trailing: Icon(icon, color: color, size: 44),

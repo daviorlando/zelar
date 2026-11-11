@@ -1,4 +1,4 @@
-# zelo
+# zelar
 
 A new Flutter project.
 

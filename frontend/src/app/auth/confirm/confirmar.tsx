@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/components/zelo/button";
+import { Button } from "@/components/zelar/button";
 import { confirmarAcesso, type EstadoDaConfirmacao } from "./actions";
 
 type Link = { token: string; tipo: "invite" | "recovery"; codigo?: never } | { codigo: string; token?: never; tipo?: never };

@@ -14,13 +14,14 @@ import 'fixtures.dart';
 /// Funcionários cadastrados no painel do gestor. A lista e as fotos ficam no celular
 /// para entrar sem internet; atualiza ao abrir o app quando houver conexão.
 ///
-/// O endereço vem do build: `flutter run --dart-define=ZELO_API=http://192.168.0.10:3000`.
-/// O token vem da ativação, por aparelho (state/device.dart). ZELO_DEVICE_KEY é a chave
+/// O endereço vem do build: `flutter run --dart-define=ZELAR_API=http://192.168.0.10:3000`.
+/// O token vem da ativação, por aparelho (state/device.dart). ZELAR_DEVICE_KEY é a chave
 /// única antiga, ainda aceita pelo painel. Sem endereço, usa o trabalhador de teste,
 /// e o build de produção se recusa a abrir (app.dart).
 class WorkersRepo {
-  static const _api = String.fromEnvironment('ZELO_API');
-  static const _deviceKey = String.fromEnvironment('ZELO_DEVICE_KEY');
+  // ZELO_*: nome de antes da troca para Zelar, aceito para não quebrar scripts de build.
+  static const _api = String.fromEnvironment('ZELAR_API', defaultValue: String.fromEnvironment('ZELO_API'));
+  static const _deviceKey = String.fromEnvironment('ZELAR_DEVICE_KEY', defaultValue: String.fromEnvironment('ZELO_DEVICE_KEY'));
 
   /// Testes da fila de envio apontam para um painel falso.
   @visibleForTesting
@@ -106,12 +107,16 @@ class WorkersRepo {
   }
 }
 
-/// Hash do crachá lido. Aceita só QR do Zelo (`zelo:cracha:<código>`).
+/// Hash do crachá lido. Aceita só QR do Zelar (`zelar:cracha:<código>`) e os crachás
+/// impressos antes da troca de nome (`zelo:cracha:<código>`), que continuam valendo.
 String? badgeHashOf(String qr) {
-  const prefix = 'zelo:cracha:';
   final text = qr.trim();
-  if (!text.startsWith(prefix) || text.length == prefix.length) return null;
-  return sha256.convert(utf8.encode(text.substring(prefix.length))).toString();
+  for (final prefix in const ['zelar:cracha:', 'zelo:cracha:']) {
+    if (!text.startsWith(prefix)) continue;
+    if (text.length == prefix.length) return null;
+    return sha256.convert(utf8.encode(text.substring(prefix.length))).toString();
+  }
+  return null;
 }
 
 class WorkersNotifier extends Notifier<List<Worker>> {

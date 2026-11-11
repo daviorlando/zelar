@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { EsqueletoDeDetalhe } from "@/components/zelo/esqueletos";
-import { PageHeader } from "@/components/zelo/misc";
+import { EsqueletoDeDetalhe } from "@/components/zelar/esqueletos";
+import { PageHeader } from "@/components/zelar/misc";
 import { setoresComAtividades } from "@/lib/setores";
 import { WorkerForm } from "../WorkerForm";
 

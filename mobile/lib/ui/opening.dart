@@ -6,8 +6,8 @@ import 'theme.dart';
 
 /// Continua a abertura do Android: mesma logo, tamanho, lugar e fundo. O nome surge e tudo
 /// some sobre a primeira tela. Só existe ao abrir o app, e dura menos de um segundo.
-class ZeloOpening extends StatefulWidget {
-  const ZeloOpening({super.key, required this.ready, required this.child});
+class ZelarOpening extends StatefulWidget {
+  const ZelarOpening({super.key, required this.ready, required this.child});
 
   /// Igual ao tamanho da logo em android/.../drawable-*/splash_logo.png (tool/gerar_icones.sh).
   static const logoSize = 160.0;
@@ -17,10 +17,10 @@ class ZeloOpening extends StatefulWidget {
   final Widget child;
 
   @override
-  State<ZeloOpening> createState() => _ZeloOpeningState();
+  State<ZelarOpening> createState() => _ZelarOpeningState();
 }
 
-class _ZeloOpeningState extends State<ZeloOpening> with SingleTickerProviderStateMixin {
+class _ZelarOpeningState extends State<ZelarOpening> with SingleTickerProviderStateMixin {
   static const _nameEnd = 0.4;
   static const _appear = Duration(milliseconds: 360);
   static const _leave = Duration(milliseconds: 500);
@@ -48,7 +48,7 @@ class _ZeloOpeningState extends State<ZeloOpening> with SingleTickerProviderStat
   }
 
   @override
-  void didUpdateWidget(ZeloOpening oldWidget) {
+  void didUpdateWidget(ZelarOpening oldWidget) {
     super.didUpdateWidget(oldWidget);
     _maybeLeave();
   }
@@ -102,7 +102,7 @@ class _ZeloOpeningState extends State<ZeloOpening> with SingleTickerProviderStat
                   return Opacity(
                     opacity: 1 - leaving,
                     child: Material(
-                      color: ZeloColors.surface,
+                      color: ZelarColors.surface,
                       child: Transform.translate(
                         offset: Offset(0, _toScreenCenter(context)),
                         child: Transform.scale(
@@ -110,13 +110,13 @@ class _ZeloOpeningState extends State<ZeloOpening> with SingleTickerProviderStat
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              const ZeloLogo(size: ZeloOpening.logoSize),
+                              const ZelarLogo(size: ZelarOpening.logoSize),
                               // Fora do fluxo: o nome surgir não pode empurrar a logo do centro.
                               Transform.translate(
-                                offset: Offset(0, ZeloOpening.logoSize / 2 + 16 + 12 * (1 - name)),
+                                offset: Offset(0, ZelarOpening.logoSize / 2 + 16 + 12 * (1 - name)),
                                 child: FractionalTranslation(
                                   translation: const Offset(0, 0.5),
-                                  child: Opacity(opacity: name, child: const ZeloName(fontSize: 36)),
+                                  child: Opacity(opacity: name, child: const ZelarName(fontSize: 36)),
                                 ),
                               ),
                             ],

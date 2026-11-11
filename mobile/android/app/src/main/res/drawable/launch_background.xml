@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Abertura no Android 10 e 11; do 12 em diante, valem os valores de values-v31. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/zelo_fundo" />
+    <item android:drawable="@color/zelar_fundo" />
     <item>
         <bitmap android:gravity="center" android:src="@drawable/splash_logo" />
     </item>

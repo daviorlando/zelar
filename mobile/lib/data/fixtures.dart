@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 
 // Dados de exemplo do protótipo do Sprint 1, no formato da planilha (Setor D).
-// Continuam no app: sem ZELO_API (build de depuração e testes), entram este funcionário
+// Continuam no app: sem ZELAR_API (build de depuração e testes), entram este funcionário
 // e estas ordens. Em produção sem painel o app nem abre (app.dart).
 // As faixas de medição são FICTÍCIAS, só para o teste de uso: em produção os
 // limites vêm do responsável técnico e o sistema não inventa valores.
@@ -12,7 +12,7 @@ import '../domain/models.dart';
 const demoPin = [0, 1, 2, 5];
 
 /// Sem painel configurado (testes e demonstração), entra este trabalhador.
-/// Crachá de teste: QR com o texto `zelo:cracha:demo-cracha-teste`.
+/// Crachá de teste: QR com o texto `zelar:cracha:demo-cracha-teste`.
 const demoWorker = Worker(
   id: 'w1',
   name: 'Trabalhador de teste',

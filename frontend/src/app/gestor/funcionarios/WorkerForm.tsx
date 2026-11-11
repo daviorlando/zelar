@@ -2,11 +2,11 @@
 
 import { startTransition, useActionState, useState } from "react";
 import { Camera } from "lucide-react";
-import { Button } from "@/components/zelo/button";
-import { Card } from "@/components/zelo/card";
-import { Caixa } from "@/components/zelo/checkbox";
-import { Notice } from "@/components/zelo/feedback";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { Card } from "@/components/zelar/card";
+import { Caixa } from "@/components/zelar/checkbox";
+import { Notice } from "@/components/zelar/feedback";
+import { Field, Input } from "@/components/zelar/input";
 import { toast } from "sonner";
 import { reduzirImagem } from "@/lib/imagem";
 import { PIN_LENGTH } from "@/lib/pin";

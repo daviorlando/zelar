@@ -1,10 +1,10 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { Card } from "@/components/zelo/card";
-import { TabelaEsqueleto } from "@/components/zelo/esqueletos";
-import { Empty } from "@/components/zelo/feedback";
-import { PageHeader } from "@/components/zelo/misc";
-import { Table, TD, TH, TR } from "@/components/zelo/table";
+import { Card } from "@/components/zelar/card";
+import { TabelaEsqueleto } from "@/components/zelar/esqueletos";
+import { Empty } from "@/components/zelar/feedback";
+import { PageHeader } from "@/components/zelar/misc";
+import { Table, TD, TH, TR } from "@/components/zelar/table";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { excluirSetor, salvarSetor } from "../actions";
 import { BotaoExcluir, FormularioDeSetor } from "../formularios";

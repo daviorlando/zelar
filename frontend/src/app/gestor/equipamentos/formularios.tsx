@@ -4,9 +4,9 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/zelo/button";
-import { ConfirmDialog } from "@/components/zelo/confirmacao";
-import { Field, Input, NativeSelect } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { ConfirmDialog } from "@/components/zelar/confirmacao";
+import { Field, Input, NativeSelect } from "@/components/zelar/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   FREQUENCIAS,

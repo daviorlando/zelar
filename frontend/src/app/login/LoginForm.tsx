@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button } from "@/components/zelo/button";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { Field, Input } from "@/components/zelar/input";
 import { login, type LoginState } from "./actions";
 
 export function LoginForm({ back }: { back: string }) {

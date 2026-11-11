@@ -3,9 +3,9 @@
 import { Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/zelo/button";
-import { ConfirmDialog } from "@/components/zelo/confirmacao";
-import { Field, Input } from "@/components/zelo/input";
+import { Button } from "@/components/zelar/button";
+import { ConfirmDialog } from "@/components/zelar/confirmacao";
+import { Field, Input } from "@/components/zelar/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { convidarOutroGestor, criarEmpresa, definirEmpresaAtiva, reenviarAcesso, type Resultado } from "./actions";
 

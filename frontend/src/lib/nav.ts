@@ -2,7 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 
-const CHAVE = "zelo.barra";
+const CHAVE = "zelar.barra";
+/** Chave de antes da troca de nome: lida uma vez e mudada para a nova. */
+const CHAVE_ANTIGA = "zelo.barra";
 
 /*
  * A escolha entre navegar e ter espaço é de quem usa, e precisa sobreviver ao
@@ -24,6 +26,11 @@ const ouvintes = new Set<() => void>();
 function lerCliente(): boolean {
   if (estado === null) {
     try {
+      const antiga = localStorage.getItem(CHAVE_ANTIGA);
+      if (antiga !== null) {
+        localStorage.setItem(CHAVE, antiga);
+        localStorage.removeItem(CHAVE_ANTIGA);
+      }
       estado = localStorage.getItem(CHAVE) !== "recolhida";
     } catch {
       // Navegação privada ou storage bloqueado: vale o padrão, só nesta sessão.

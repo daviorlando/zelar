@@ -17,7 +17,7 @@ import {
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Logo, NomeDaMarca } from "@/components/zelo/logo";
+import { Logo, NomeDaMarca } from "@/components/zelar/logo";
 import { alternarBarra, useBarraAberta } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 

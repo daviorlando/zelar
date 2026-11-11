@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Logo } from "@/components/zelo/logo";
+import { Logo } from "@/components/zelar/logo";
 import { LoginForm } from "./LoginForm";
 
 export const metadata = { title: "Entrar" };
@@ -11,7 +11,7 @@ async function Form({ searchParams }: PageProps<"/login">) {
     <>
       {semAcesso && (
         <p role="alert" className="mb-4 rounded-sm border border-warning bg-warning-soft px-3 py-2 text-sm text-warning">
-          Esta conta não tem acesso a nenhuma empresa ativa. Fale com o administrador do Zelo.
+          Esta conta não tem acesso a nenhuma empresa ativa. Fale com o administrador do Zelar.
         </p>
       )}
       <LoginForm back={typeof back === "string" ? back : ""} />
@@ -42,7 +42,7 @@ export default function LoginPage(props: PageProps<"/login">) {
         </p>
       </section>
       <p className="vidro-cartao absolute bottom-5 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-        Zelo
+        Zelar
       </p>
     </main>
   );

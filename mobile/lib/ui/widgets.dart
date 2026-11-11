@@ -58,7 +58,7 @@ class BigActionButton extends ConsumerWidget {
       label: label,
       // Altura mínima, não fixa: com a fonte grande do celular, o botão cresce com o texto.
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: ZeloSizes.responseHeight, minWidth: double.infinity),
+        constraints: const BoxConstraints(minHeight: ZelarSizes.responseHeight, minWidth: double.infinity),
         child: FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: color,
@@ -156,7 +156,7 @@ class AudioButton extends ConsumerWidget {
             child: FilledButton(
               // Preto, para não se confundir com o azul do "Não consegui".
               style: FilledButton.styleFrom(
-                backgroundColor: ZeloColors.ink,
+                backgroundColor: ZelarColors.ink,
                 foregroundColor: Colors.white,
                 shape: const CircleBorder(),
                 padding: EdgeInsets.zero,
@@ -176,8 +176,8 @@ class AudioButton extends ConsumerWidget {
                 message: 'Voz provisória (sem gravação aprovada)',
                 child: CircleAvatar(
                   radius: 16,
-                  backgroundColor: ZeloColors.problem,
-                  child: Icon(Icons.smart_toy, size: 20, color: ZeloColors.ink),
+                  backgroundColor: ZelarColors.problem,
+                  child: Icon(Icons.smart_toy, size: 20, color: ZelarColors.ink),
                 ),
               ),
             ),
@@ -202,9 +202,9 @@ class SyncStatusIcon extends ConsumerWidget {
     return IconButton(
       key: const Key('sync-attention'),
       iconSize: 36,
-      constraints: const BoxConstraints(minWidth: ZeloSizes.minTouch, minHeight: ZeloSizes.minTouch),
+      constraints: const BoxConstraints(minWidth: ZelarSizes.minTouch, minHeight: ZelarSizes.minTouch),
       tooltip: attentionText,
-      icon: const Icon(Icons.error, color: ZeloColors.overdue),
+      icon: const Icon(Icons.error, color: ZelarColors.overdue),
       onPressed: () => ref.read(speakerProvider).say(attentionText),
     );
   }
@@ -293,7 +293,7 @@ class ReturnedBanner extends ConsumerWidget {
       excludeSemantics: true,
       child: Material(
         key: const Key('returned-banner'),
-        color: ZeloColors.returned,
+        color: ZelarColors.returned,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -327,8 +327,8 @@ class ReturnedBanner extends ConsumerWidget {
   }
 }
 
-class ZeloScaffold extends StatelessWidget {
-  const ZeloScaffold({super.key, required this.body, this.showHome = true, this.title, this.bottom, this.action});
+class ZelarScaffold extends StatelessWidget {
+  const ZelarScaffold({super.key, required this.body, this.showHome = true, this.title, this.bottom, this.action});
 
   final Widget body;
   final bool showHome;
@@ -356,11 +356,11 @@ class ZeloScaffold extends StatelessWidget {
         actions: [?action, const SyncStatusIcon(), const SizedBox(width: 8)],
       ),
       body: SafeArea(
-        child: Padding(padding: const EdgeInsets.all(ZeloSizes.gutter), child: body),
+        child: Padding(padding: const EdgeInsets.all(ZelarSizes.gutter), child: body),
       ),
       bottomNavigationBar: bottom == null
           ? null
-          : SafeArea(child: Padding(padding: const EdgeInsets.all(ZeloSizes.gutter), child: bottom)),
+          : SafeArea(child: Padding(padding: const EdgeInsets.all(ZelarSizes.gutter), child: bottom)),
     );
   }
 }
@@ -386,12 +386,12 @@ class ProgressRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: total == 0 ? 0 : done / total,
               strokeWidth: 8,
-              color: finished ? ZeloColors.ok : color,
+              color: finished ? ZelarColors.ok : color,
               backgroundColor: color.withValues(alpha: 0.15),
             ),
           ),
           finished
-              ? const Icon(Icons.check, size: 36, color: ZeloColors.ok)
+              ? const Icon(Icons.check, size: 36, color: ZelarColors.ok)
               : Text('${total - done}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         ],
       ),

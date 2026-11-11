@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { EsqueletoDeQuadro } from "@/components/zelo/esqueletos";
-import { Notice } from "@/components/zelo/feedback";
-import { PageHeader } from "@/components/zelo/misc";
+import { EsqueletoDeQuadro } from "@/components/zelar/esqueletos";
+import { Notice } from "@/components/zelar/feedback";
+import { PageHeader } from "@/components/zelar/misc";
 import { FREQUENCIAS, ROTULO_FREQUENCIA, type Frequencia } from "@/lib/plano";
 import { MOTIVO, nomeLegivel, type CartaoDaOrdem, type SituacaoDaOrdem } from "@/lib/quadro";
 import { hojeNaUnidade, periodoQueContem, somarDias } from "@/lib/schedule";

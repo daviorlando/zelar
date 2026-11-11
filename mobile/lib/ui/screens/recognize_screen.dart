@@ -59,7 +59,7 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
   @override
   Widget build(BuildContext context) {
     final eq = order.equipment;
-    return ZeloScaffold(
+    return ZelarScaffold(
       title: Text(eq.shortName),
       body: Column(
         children: [
@@ -80,7 +80,7 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
             key: const Key('recognize-ok'),
             label: 'Estou aqui',
             icon: Icons.check_circle,
-            color: ZeloColors.ok,
+            color: ZelarColors.ok,
             spokenHelp: Phrases.hereButton,
             onPressed: () => _start('foto'),
           ),
@@ -88,7 +88,7 @@ class _RecognizeScreenState extends ConsumerState<RecognizeScreen> {
           BigActionButton(
             label: 'Ler etiqueta',
             icon: Icons.qr_code_scanner,
-            color: ZeloColors.scan,
+            color: ZelarColors.scan,
             spokenHelp: Phrases.qrButton,
             onPressed: _scan,
           ),
@@ -125,7 +125,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(ZeloSizes.gutter),
+              padding: const EdgeInsets.all(ZelarSizes.gutter),
               child: IconButton.filled(
                 iconSize: 40,
                 tooltip: 'Fechar',

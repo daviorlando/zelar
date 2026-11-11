@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { Badge } from "@/components/zelo/badge";
-import { Card } from "@/components/zelo/card";
-import { Empty, Loading, Notice } from "@/components/zelo/feedback";
-import { PageHeader } from "@/components/zelo/misc";
+import { Badge } from "@/components/zelar/badge";
+import { Card } from "@/components/zelar/card";
+import { Empty, Loading, Notice } from "@/components/zelar/feedback";
+import { PageHeader } from "@/components/zelar/misc";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { exigirSuperAdmin } from "@/lib/empresa";
 import { AcoesDaEmpresa, NovaEmpresa, ReenviarAcesso } from "./formularios";

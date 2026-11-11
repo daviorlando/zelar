@@ -8,7 +8,7 @@ import {
   Sidebar,
   SidebarProvider,
   type GrupoDeNavegacao,
-} from "@/components/zelo/sidebar";
+} from "@/components/zelar/sidebar";
 import { logout } from "@/app/login/actions";
 import { alternarTema, useTemaClaro } from "@/lib/tema";
 

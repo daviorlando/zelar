@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 
 export type ResultadoDoConvite = { erro?: string };
 
-const JA_TEM_CONTA = "Este e-mail já tem conta no Zelo.";
+const JA_TEM_CONTA = "Este e-mail já tem conta no Zelar.";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const emailValido = (email: string) => EMAIL.test(email);

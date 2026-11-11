@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:zelo/data/orders_repo.dart';
-import 'package:zelo/data/workers_repo.dart';
-import 'package:zelo/domain/models.dart';
-import 'package:zelo/state/outbox.dart';
-import 'package:zelo/state/session.dart';
+import 'package:zelar/data/orders_repo.dart';
+import 'package:zelar/data/workers_repo.dart';
+import 'package:zelar/domain/models.dart';
+import 'package:zelar/state/outbox.dart';
+import 'package:zelar/state/session.dart';
 
 /// Formato de GET /api/mobile/orders, com dados no estilo da planilha.
 Map<String, dynamic> sampleJson() => {
@@ -150,7 +150,7 @@ void main() {
     late http.Response Function(http.Request) respond;
 
     setUp(() async {
-      dir = await Directory.systemTemp.createTemp('zelo-fila');
+      dir = await Directory.systemTemp.createTemp('zelar-fila');
       OutboxNotifier.directory = () async => dir;
       WorkersRepo.override = (api: 'http://painel.test', key: 'k');
       sent = [];

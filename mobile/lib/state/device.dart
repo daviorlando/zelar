@@ -15,11 +15,22 @@ abstract class TokenStore {
 }
 
 class SecureTokenStore implements TokenStore {
-  static const _key = 'zelo_device_token';
+  static const _key = 'zelar_device_token';
+  /// Onde o token ficava antes da troca de nome. Celulares já ativados não pedem código de novo.
+  static const _oldKey = 'zelo_device_token';
   final _storage = const FlutterSecureStorage();
 
   @override
-  Future<String?> read() => _storage.read(key: _key);
+  Future<String?> read() async {
+    final token = await _storage.read(key: _key);
+    if (token != null) return token;
+    final old = await _storage.read(key: _oldKey);
+    if (old != null) {
+      await _storage.write(key: _key, value: old);
+      await _storage.delete(key: _oldKey);
+    }
+    return old;
+  }
 
   @override
   Future<void> write(String token) => _storage.write(key: _key, value: token);

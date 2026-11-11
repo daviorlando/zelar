@@ -6,7 +6,7 @@
  */
 export const AGUARDE = "Já enviamos há pouco. Aguarde um minuto para pedir de novo.";
 export const LIMITE_DE_EMAILS =
-  "O limite de emails por hora foi atingido. Tente de novo mais tarde ou peça um link ao responsável pelo Zelo.";
+  "O limite de emails por hora foi atingido. Tente de novo mais tarde ou peça um link ao responsável pelo Zelar.";
 export const FALHA_NO_ENVIO = "Não foi possível enviar o email agora. Tente de novo em alguns minutos.";
 
 export function erroDeEnvio(error: { status?: number; code?: string }): string {

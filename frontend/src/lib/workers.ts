@@ -17,7 +17,7 @@ export const PHOTO_BUCKET = "worker-photos";
 export const newBadgeToken = () => randomBytes(32).toString("base64url");
 
 /** O QR leva prefixo fixo para o celular recusar QR de etiqueta ou de outro sistema. */
-export const badgeQrText = (token: string) => `zelo:cracha:${token}`;
+export const badgeQrText = (token: string) => `zelar:cracha:${token}`;
 
 /** O celular recebe só o hash: com uma cópia do aparelho não dá para refazer crachás. */
 export const badgeHash = (token: string) => createHash("sha256").update(token).digest("hex");

@@ -1,5 +1,5 @@
 {
-  "name": "zelo-backend",
+  "name": "zelar-backend",
   "version": "1.0.0",
   "scripts": {
     "import:dry": "tsx tools/importer/cli.ts",
@@ -10,7 +10,7 @@
     "db:super-admin": "tsx --env-file=../frontend/.env tools/db/super-admin.ts",
     "import:load": "tsx --env-file=../frontend/.env tools/importer/load.ts"
   },
-  "description": "Supabase (migrações), importador da planilha e contrato da API do Zelo",
+  "description": "Supabase (migrações), importador da planilha e contrato da API do Zelar",
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/pg": "^8.23.1",

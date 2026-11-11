@@ -6,7 +6,7 @@ set -euo pipefail
 RAIZ="$(cd "$(dirname "$0")/../.." && pwd)"
 SVG="$RAIZ/frontend/src/app/icon.svg"
 RES="$RAIZ/mobile/android/app/src/main/res"
-FUNDO="#F5F5F0" # ZeloColors.surface
+FUNDO="#F5F5F0" # ZelarColors.surface
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -30,7 +30,7 @@ for par in mdpi:4 hdpi:6 xhdpi:8 xxhdpi:12 xxxhdpi:16; do
   tela $((36 * m / 4)) $((48 * m / 4)) "$FUNDO" "$RES/mipmap-$d/ic_launcher.png"
   # Ícone adaptativo: tela de 108 dp, com a logo dentro da área segura de 66 dp.
   tela $((64 * m / 4)) $((108 * m / 4)) none "$RES/mipmap-$d/ic_launcher_foreground.png"
-  # Abertura: tela de 288 dp, com a logo em 160 dp. ZeloOpening.logoSize precisa ser igual.
+  # Abertura: tela de 288 dp, com a logo em 160 dp. ZelarOpening.logoSize precisa ser igual.
   tela $((160 * m / 4)) $((288 * m / 4)) none "$RES/drawable-$d/splash_logo.png"
 done
 

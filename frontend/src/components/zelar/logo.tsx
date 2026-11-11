@@ -3,7 +3,7 @@ import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Marca do Zelo: escudo em degradê de azul-marinho com um Z claro dentro, e o
+ * Marca do Zelar: escudo em degradê de azul-marinho com um Z claro dentro, e o
  * nome em traço fino ao lado. A mesma nos dois temas.
  *
  * Ids dos degradês vêm do `useId`: a marca aparece duas vezes na mesma página
@@ -60,7 +60,7 @@ export function NomeDaMarca({ className }: { className?: string }) {
         className,
       )}
     >
-      Zelo
+      Zelar
     </span>
   );
 }

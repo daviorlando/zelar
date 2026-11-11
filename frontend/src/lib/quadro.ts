@@ -1,6 +1,6 @@
 // Vocabulário do quadro de ordens (escopo v0.5, seção 9). Usado no servidor e no navegador.
 
-import type { BadgeTone } from "@/components/zelo/badge";
+import type { BadgeTone } from "@/components/zelar/badge";
 import type { Frequencia } from "@/lib/plano";
 
 export type SituacaoDaOrdem = "open" | "in_progress" | "blocked" | "awaiting_validation" | "done" | "cancelled";

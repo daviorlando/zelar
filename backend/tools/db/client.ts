@@ -9,7 +9,7 @@ export function ehLocal(url: string): boolean {
 
 /**
  * Conexão direta ao Postgres do Supabase (SUPABASE_DB_URL em frontend/.env, fora do git).
- * Esse .env costuma apontar para a produção: banco remoto só com ZELO_CONFIRMA_REMOTO=<host>
+ * Esse .env costuma apontar para a produção: banco remoto só com ZELAR_CONFIRMA_REMOTO=<host>
  * e com o certificado conferido pelo CA do Supabase (SUPABASE_DB_CA, caminho do arquivo).
  */
 export async function connect(): Promise<pg.Client> {
@@ -21,8 +21,8 @@ export async function connect(): Promise<pg.Client> {
   const local = ehLocal(url);
   if (!local) {
     const host = new URL(url).hostname;
-    if (process.env.ZELO_CONFIRMA_REMOTO !== host) {
-      console.error(`Recusado: o banco é remoto (${host}). Para continuar de propósito: ZELO_CONFIRMA_REMOTO=${host}`);
+    if ((process.env.ZELAR_CONFIRMA_REMOTO ?? process.env.ZELO_CONFIRMA_REMOTO) !== host) {
+      console.error(`Recusado: o banco é remoto (${host}). Para continuar de propósito: ZELAR_CONFIRMA_REMOTO=${host}`);
       process.exit(1);
     }
     // Sem conferir o certificado, quem estiver no caminho recebe a senha do banco de produção.

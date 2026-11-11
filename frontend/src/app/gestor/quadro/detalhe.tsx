@@ -1,6 +1,6 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Gauge, Image as ImageIcon } from "lucide-react";
-import { Badge } from "@/components/zelo/badge";
-import { PilulaDeFrequencia } from "@/components/zelo/frequencia";
+import { Badge } from "@/components/zelar/badge";
+import { PilulaDeFrequencia } from "@/components/zelar/frequencia";
 import type { Frequencia } from "@/lib/plano";
 import { COLUNAS, MOTIVO, nomeLegivel, prazoRelativo, RESULTADO } from "@/lib/quadro";
 import { hojeNaUnidade } from "@/lib/schedule";

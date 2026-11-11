@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/sonner";
-import { CHAVE_TEMA } from "@/lib/tema-chave";
+import { CHAVE_TEMA, CHAVE_TEMA_ANTIGA } from "@/lib/tema-chave";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,7 +17,7 @@ const codecBold = localFont({ src: "./fonts/CodecPro-Bold.woff2", variable: "--f
 const codecLight = localFont({ src: "./fonts/CodecPro-Light.woff2", variable: "--font-codec-light", weight: "300", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Zelo", template: "%s · Zelo" },
+  title: { default: "Zelar", template: "%s · Zelar" },
   description: "Painel do gestor de manutenção",
   robots: { index: false, follow: false },
 };
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
 };
 
 /* Tema antes da primeira pintura: a escolha salva vence; sem ela, segue o sistema. */
-const semLampejo = `try{var t=localStorage.getItem("${CHAVE_TEMA}");if(t==="claro"||(t!=="escuro"&&window.matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.classList.add("light")}catch(e){}`;
+const semLampejo = `try{var a=localStorage.getItem("${CHAVE_TEMA_ANTIGA}");if(a!==null){localStorage.setItem("${CHAVE_TEMA}",a);localStorage.removeItem("${CHAVE_TEMA_ANTIGA}")}var t=localStorage.getItem("${CHAVE_TEMA}");if(t==="claro"||(t!=="escuro"&&window.matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.classList.add("light")}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

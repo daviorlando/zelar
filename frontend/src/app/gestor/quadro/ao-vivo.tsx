@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/zelo/badge";
+import { Badge } from "@/components/zelar/badge";
 import { supabaseDoNavegador } from "@/lib/supabase/browser";
 
 /** Agrupa a rajada de eventos de um lote do celular numa atualização só. */

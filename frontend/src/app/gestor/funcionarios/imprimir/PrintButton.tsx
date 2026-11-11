@@ -1,7 +1,7 @@
 "use client";
 
 import { Printer } from "lucide-react";
-import { Button } from "@/components/zelo/button";
+import { Button } from "@/components/zelar/button";
 
 export function PrintButton() {
   return (

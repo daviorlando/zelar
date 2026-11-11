@@ -2,7 +2,7 @@
 
 import { Minus, Move, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/zelo/button";
+import { Button } from "@/components/zelar/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { aproximar, centralizar, escalaDe, prender, recortarQuadrado, type Enquadramento } from "@/lib/imagem";
 

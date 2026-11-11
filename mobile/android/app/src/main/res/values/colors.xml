@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Igual a ZeloColors.surface: a abertura e o app têm o mesmo fundo, sem lampejo. -->
-    <color name="zelo_fundo">#F5F5F0</color>
+    <!-- Igual a ZelarColors.surface: a abertura e o app têm o mesmo fundo, sem lampejo. -->
+    <color name="zelar_fundo">#F5F5F0</color>
 </resources>
