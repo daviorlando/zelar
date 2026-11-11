@@ -59,7 +59,8 @@ export async function funcionarioDaEmpresa(workerId: string, companyId: string):
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const ehUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 
-function sameSecret(a: string, b: string) {
+/** Compara em bytes: um texto com acento tem outro tamanho em bytes que em caracteres. */
+export function sameSecret(a: string, b: string) {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);

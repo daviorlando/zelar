@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
+import { sameSecret } from "@/lib/aparelho";
 import { gerarOrdensDeTodasAsEmpresas } from "@/lib/gerar";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -7,10 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const segredo = process.env.CRON_SECRET;
   const recebido = request.headers.get("authorization") ?? "";
-  const esperado = `Bearer ${segredo}`;
-  const confere =
-    !!segredo && recebido.length === esperado.length && timingSafeEqual(Buffer.from(recebido), Buffer.from(esperado));
-  if (!confere) return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
+  if (!segredo || !sameSecret(recebido, `Bearer ${segredo}`)) return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
 
   try {
     const resultado = await gerarOrdensDeTodasAsEmpresas(supabaseAdmin());
