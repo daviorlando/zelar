@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import pg from "pg";
 
 /** Banco nesta máquina (Supabase local)? Só então dá para rodar sem confirmação nem SSL. */
@@ -8,7 +9,8 @@ export function ehLocal(url: string): boolean {
 
 /**
  * Conexão direta ao Postgres do Supabase (SUPABASE_DB_URL em frontend/.env, fora do git).
- * Esse .env costuma apontar para a produção: banco remoto só com ZELO_CONFIRMA_REMOTO=<host>.
+ * Esse .env costuma apontar para a produção: banco remoto só com ZELO_CONFIRMA_REMOTO=<host>
+ * e com o certificado conferido pelo CA do Supabase (SUPABASE_DB_CA, caminho do arquivo).
  */
 export async function connect(): Promise<pg.Client> {
   const url = process.env.SUPABASE_DB_URL;
@@ -23,9 +25,16 @@ export async function connect(): Promise<pg.Client> {
       console.error(`Recusado: o banco é remoto (${host}). Para continuar de propósito: ZELO_CONFIRMA_REMOTO=${host}`);
       process.exit(1);
     }
+    // Sem conferir o certificado, quem estiver no caminho recebe a senha do banco de produção.
+    if (!process.env.SUPABASE_DB_CA) {
+      console.error("Falta SUPABASE_DB_CA em frontend/.env: caminho do certificado (Supabase → Project Settings → Database → SSL Configuration).");
+      process.exit(1);
+    }
     console.warn(`Atenção: conectando ao banco remoto ${host}.`);
   }
-  const client = new pg.Client({ connectionString: url, ssl: local ? false : { rejectUnauthorized: false } });
+  // O pooler (*.pooler.supabase.com) é assinado pelo "Supabase Root 2021 CA", o certificado que se baixa.
+  const ssl = local ? false : { ca: readFileSync(process.env.SUPABASE_DB_CA!, "utf8") };
+  const client = new pg.Client({ connectionString: url, ssl });
   await client.connect();
   return client;
 }
