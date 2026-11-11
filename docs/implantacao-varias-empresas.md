@@ -4,7 +4,7 @@ Roteiro para levar esta versão à produção. Siga na ordem: as migrações pre
 
 ## O que falta e é com você
 
-Situação em 10/11/2026: o código está em `main` e o CI passou. As migrações estão aplicadas, e o painel está no ar em https://zelo-vert.vercel.app e, desde 11/11, também em https://zelar-vert.vercel.app (projeto `zelar` na Vercel, ligado ao `main`: cada envio publica sozinho). Os links dos e-mails ainda usam o endereço antigo: para trocar, inclua `https://zelar-vert.vercel.app/**` em Supabase → Authentication → URL Configuration → Redirect URLs e só então mude `NEXT_PUBLIC_SITE_URL` na Vercel e faça um novo deploy. Os passos marcados **(Claude)** são feitos pelo Claude, depois do seu OK.
+Situação em 10/11/2026: o código está em `main` e o CI passou. As migrações estão aplicadas, e o painel está no ar em https://zelo-vert.vercel.app e, desde 11/11, também em https://zelar-vert.vercel.app (projeto `zelar` na Vercel, ligado ao `main`: cada envio publica sozinho). Desde 11/11 os links dos e-mails usam o endereço novo: no Supabase (Authentication → URL Configuration), Site URL é `https://zelar-vert.vercel.app` e Redirect URLs tem `https://zelar-vert.vercel.app/auth/confirm` (o `zelo-vert` continua na lista para links já enviados); na Vercel, `NEXT_PUBLIC_SITE_URL` é o mesmo endereço. Os passos marcados **(Claude)** são feitos pelo Claude, depois do seu OK.
 
 ### Já feito
 
