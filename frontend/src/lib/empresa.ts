@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { supabaseForUser } from "@/lib/supabase/server";
 
 export type Perfil = {
@@ -10,8 +11,9 @@ export type Perfil = {
   empresa: string | null;
 };
 
-/** Quem está conectado, pela própria sessão. Null sem sessão ou sem linha em app_user. */
-export async function perfilAtual(): Promise<Perfil | null> {
+/** Quem está conectado, pela própria sessão. Null sem sessão ou sem linha em app_user.
+ * cache(): o layout e a página leem uma vez só por pedido (antes, 3 consultas a cada chamada). */
+export const perfilAtual = cache(async (): Promise<Perfil | null> => {
   const supabase = await supabaseForUser();
   const { data: sessao } = await supabase.auth.getClaims();
   const id = sessao?.claims?.sub as string | undefined;
@@ -28,7 +30,7 @@ export async function perfilAtual(): Promise<Perfil | null> {
     empresaId: linha.company_id,
     empresa,
   };
-}
+});
 
 /** Gestor de empresa ativa: as ações com a chave secreta (que ignora o RLS) passam por aqui. */
 export async function exigirGestor(): Promise<(Perfil & { empresaId: string }) | null> {
