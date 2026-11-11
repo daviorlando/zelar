@@ -1,10 +1,12 @@
 // Carga da planilha no banco. Uso: npm run import:load -- <planilha.xlsx> --company=<id da empresa>
-// Idempotente: equipamentos por tag, atividades por (aba, linha), dentro da empresa.
+// Idempotente: equipamentos por tag, atividades pelo conteúdo (casar.ts), dentro da empresa.
+// Aba e linha só ordenam: linha inserida no meio ou aba renomeada não reescreve o histórico.
 // Atividades diárias entram retiradas: o plano não tem mais revisão diária.
 // Linhas com pendência (tag em branco, inexistente ou de outro setor) ficam fora do plano (retired)
 // e são listadas no fim: corrija a tag na planilha e importe de novo.
 // O que o gestor já mexeu no painel (equipment.edited_at, plan_item.reviewed_at) não é sobrescrito.
 import { connect } from "../db/client";
+import { type AtividadeImportada, casarAtividades } from "./casar";
 import { parseWorkbook } from "./parse";
 
 async function main() {
@@ -29,19 +31,17 @@ async function main() {
     );
 
     // Principais antes dos componentes, para o parent_id já existir.
-    const equipment = [...catalog].sort((a, b) => Number(a.parentTag != null) - Number(b.parentTag != null));
     await db.query(
-      `insert into public.equipment (company_id, tag, name, parent_id, sector_code, brand, model, power_cv, rpm, working_temp, lubricant, source_row)
-       select $2::uuid, e.tag, e.name, p.id, e.sector, e.brand, e.model, e."powerCv", e.rpm, e."workingTemp", e.lubricant, e.row
+      `insert into public.equipment (company_id, tag, name, sector_code, brand, model, power_cv, rpm, working_temp, lubricant, source_row)
+       select $2::uuid, e.tag, e.name, e.sector, e.brand, e.model, e."powerCv", e.rpm, e."workingTemp", e.lubricant, e.row
        from jsonb_to_recordset($1::jsonb) as e(tag text, name text, "parentTag" text, sector text, brand text, model text,
             "powerCv" numeric, rpm numeric, "workingTemp" text, lubricant text, row int)
-       left join public.equipment p on p.tag = e."parentTag" and p.company_id = $2
        where e."parentTag" is null
        on conflict (company_id, tag) do update set name = excluded.name, sector_code = excluded.sector_code, brand = excluded.brand,
          model = excluded.model, power_cv = excluded.power_cv, rpm = excluded.rpm, working_temp = excluded.working_temp,
          lubricant = excluded.lubricant, source_row = excluded.source_row
        where equipment.edited_at is null`,
-      [JSON.stringify(equipment.map((e) => ({ ...e, row: e.source.row }))), company],
+      [JSON.stringify(catalog.map((e) => ({ ...e, row: e.source.row }))), company],
     );
     await db.query(
       `insert into public.equipment (company_id, tag, name, parent_id, sector_code, brand, model, power_cv, rpm, working_temp, lubricant, source_row)
@@ -53,10 +53,33 @@ async function main() {
          brand = excluded.brand, model = excluded.model, power_cv = excluded.power_cv, rpm = excluded.rpm,
          working_temp = excluded.working_temp, lubricant = excluded.lubricant, source_row = excluded.source_row
        where equipment.edited_at is null`,
-      [JSON.stringify(equipment.filter((e) => e.parentTag).map((e) => ({ ...e, row: e.source.row }))), company],
+      [JSON.stringify(catalog.filter((e) => e.parentTag).map((e) => ({ ...e, row: e.source.row }))), company],
     );
 
-    const items = rows.map((r) => ({
+    const { rows: banco } = await db.query<AtividadeImportada>(
+      `select id, source_key as key, source_sheet as sheet, source_row as row, sector_code as sector, frequency,
+              tag_raw as "tagRaw", equipment_name_raw as "equipmentName", component_name_raw as "componentName", activity,
+              reviewed_at is not null as reviewed, status = 'retired' as retired
+       from public.plan_item where company_id = $1 and source_sheet is not null`,
+      [company],
+    );
+    const { keys, ids, setoresSumidos } = casarAtividades(rows, banco);
+    if (setoresSumidos.length) {
+      throw new Error(
+        `A planilha não tem aba para o setor ${setoresSumidos.join(", ")}, que já tem atividades em uso no banco. ` +
+          "Inclua a aba na planilha ou exclua essas atividades no painel antes de importar. Nada foi gravado.",
+      );
+    }
+    // Já existentes: a chave (as importadas antes não tinham) e a posição atual na planilha.
+    await db.query(
+      `update public.plan_item p set source_key = s.key, source_sheet = s.sheet, source_row = s.row
+       from jsonb_to_recordset($1::jsonb) as s(id uuid, key text, sheet text, row int)
+       where p.id = s.id and p.company_id = $2`,
+      [JSON.stringify(rows.flatMap((r, i) => (ids[i] ? [{ id: ids[i], key: keys[i], sheet: r.source.sheet, row: r.source.row }] : []))), company],
+    );
+
+    const items = rows.map((r, i) => ({
+      key: keys[i],
       sheet: r.source.sheet,
       row: r.source.row,
       sector: r.sector,
@@ -75,19 +98,19 @@ async function main() {
     const { rows: counts } = await db.query(
       `with src as (
          select i.*, e.id as equipment_id
-         from jsonb_to_recordset($1::jsonb) as i(sheet text, row int, sector text, frequency public.frequency, tag text,
+         from jsonb_to_recordset($1::jsonb) as i(key text, sheet text, row int, sector text, frequency public.frequency, tag text,
               "equipmentName" text, "componentName" text, "tagRaw" text, activity text, kind text, type public.item_type,
               qualification text, multiple boolean, issues text[])
          left join public.equipment e on e.tag = i.tag and e.company_id = $2
        ), up as (
-         insert into public.plan_item (company_id, source_sheet, source_row, sector_code, frequency, equipment_id, equipment_name_raw,
+         insert into public.plan_item (company_id, source_key, source_sheet, source_row, sector_code, frequency, equipment_id, equipment_name_raw,
            component_name_raw, tag_raw, activity, instruction_kind, item_type, qualification, multiple_actions, status, issues)
-         select $2::uuid, sheet, row, sector, frequency, equipment_id, "equipmentName", "componentName", "tagRaw", activity, kind, type,
+         select $2::uuid, key, sheet, row, sector, frequency, equipment_id, "equipmentName", "componentName", "tagRaw", activity, kind, type,
            qualification, multiple,
            case when frequency = 'daily' or cardinality(issues) > 0 or equipment_id is null then 'retired' else 'active' end::public.plan_status,
            issues
          from src
-         on conflict (company_id, source_sheet, source_row) do update set
+         on conflict (company_id, source_key) do update set
            sector_code = excluded.sector_code, frequency = excluded.frequency, equipment_name_raw = excluded.equipment_name_raw,
            component_name_raw = excluded.component_name_raw, tag_raw = excluded.tag_raw, activity = excluded.activity,
            instruction_kind = excluded.instruction_kind, multiple_actions = excluded.multiple_actions,
@@ -103,19 +126,21 @@ async function main() {
       [JSON.stringify(items), company],
     );
 
-    // Linhas que saíram da planilha deixam de valer (sem apagar o histórico das ordens já geradas).
-    const sheets = [...new Set(rows.map((r) => r.source.sheet))];
+    // Atividades que saíram da planilha deixam de valer (sem apagar o histórico das ordens já geradas).
     const { rowCount: retired } = await db.query(
       `update public.plan_item set status = 'retired'
-       where company_id = $4 and source_sheet = any($1::text[]) and status <> 'retired' and reviewed_at is null
-         and (source_sheet, source_row) not in (select s, r from unnest($2::text[], $3::int[]) as t(s, r))`,
-      [sheets, rows.map((r) => r.source.sheet), rows.map((r) => r.source.row), company],
+       where company_id = $2 and source_sheet is not null and status <> 'retired' and reviewed_at is null
+         and (source_key is null or source_key <> all($1::text[]))`,
+      [keys, company],
     );
+    // E saem das ordens abertas, como quando o gestor muda o plano no painel.
+    const { rows: [ajuste] } = await db.query("select * from public.ajustar_ordens_da_empresa($1)", [company]);
 
     await db.query("commit");
     const c = counts[0];
     console.log(`Setores: ${sectors.join(", ")} | Equipamentos e componentes: ${catalog.length}`);
     console.log(`Atividades: ${rows.length} (novas ${c.novas}, atualizadas ${c.atualizadas}, retiradas da planilha ${retired})`);
+    console.log(`Ordens abertas: ${ajuste.itens} itens retirados, ${ajuste.ordens} ordens vazias apagadas`);
     const ignoradas: string[] = c.ignoradas ?? [];
     if (ignoradas.length) {
       console.log(`Ignoradas por falta de equipamento (${ignoradas.length}): corrija a tag na planilha e importe de novo.`);

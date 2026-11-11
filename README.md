@@ -16,7 +16,19 @@ npm install
 npm run import:dry -- "../Calendário de Manutenção - Eco Gesso (1).xlsx"
 ```
 
-Gera `backend/tools/importer/out/relatorio-conferencia.xlsx` (resumo, linhas rastreadas, pendências, tipos de instrução, cadastro) e `importacao.json`. Nada é gravado no banco. Planilhas e saídas ficam fora do git (`.gitignore`).
+Gera `backend/tools/importer/out/relatorio-conferencia.xlsx` (resumo, linhas rastreadas, pendências, tipos de instrução, cadastro). Nada é gravado no banco. Planilhas e saídas ficam fora do git (`.gitignore`).
+
+A carga no banco (`npm run import:load -- <planilha.xlsx> --company=<id>`) reconhece cada atividade pelo conteúdo (setor, frequência, tag e texto): inserir linhas ou renomear a aba não duplica nem reescreve o histórico. Se faltar na planilha a aba de um setor que já tem atividades em uso, a carga para sem gravar nada.
+
+### Conexão direta ao banco (migrações, carga, super-admin)
+
+Os scripts de `backend/` conferem o certificado do banco remoto. Baixe o certificado em Supabase → Project Settings → Database → SSL Configuration → **Download certificate** e indique o arquivo em `frontend/.env`:
+
+```bash
+SUPABASE_DB_CA=/caminho/para/prod-ca-2021.crt
+```
+
+Sem essa variável, a conexão ao banco remoto é recusada.
 
 ## Painel do gestor: funcionários e crachás
 
