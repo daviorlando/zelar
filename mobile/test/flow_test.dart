@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,15 +10,21 @@ import 'package:zelo/audio/phrases.dart';
 import 'package:zelo/audio/speaker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:record/record.dart';
 import 'package:zelo/data/fixtures.dart';
 import 'package:zelo/data/orders_repo.dart';
 import 'package:zelo/data/workers_repo.dart';
 import 'package:zelo/domain/models.dart';
+import 'package:zelo/domain/reasons.dart';
 import 'package:zelo/state/device.dart';
+import 'package:zelo/state/outbox.dart';
 import 'package:zelo/state/recent.dart';
 import 'package:zelo/state/session.dart';
 import 'package:zelo/state/setup.dart';
+import 'package:zelo/ui/screens/reason_screen.dart';
 import 'package:zelo/ui/widgets.dart';
+
+WorkOrder orderById(String id) => demoOrders.firstWhere((o) => o.id == id);
 
 const phones = {'comum 412x915': Size(412, 915), 'pequeno 360x640': Size(360, 640)};
 
@@ -48,6 +57,57 @@ class FakeSystem extends SystemSettings {
 
   @override
   Future<int?> mediaVolume() async => volume;
+}
+
+/// Microfone de mentira: permissão escolhida pelo teste e um início que só termina quando ele quer.
+class FakeRecorder implements AudioRecorder {
+  var granted = false;
+  var allowOnAsk = false;
+  var asked = 0;
+  var stops = 0;
+  final started = <String>[];
+  Completer<void>? starting;
+
+  @override
+  Future<bool> hasPermission({bool request = true}) async {
+    if (!granted && request) {
+      asked++;
+      granted = allowOnAsk;
+    }
+    return granted;
+  }
+
+  @override
+  Future<void> start(RecordConfig config, {required String path}) async {
+    started.add(path);
+    await starting?.future;
+  }
+
+  @override
+  Future<String?> stop() async {
+    stops++;
+    return started.last;
+  }
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Troca o microfone da tela de motivo durante um teste.
+FakeRecorder fakeMic() {
+  final rec = FakeRecorder();
+  final recorder = ReasonScreen.recorder;
+  final directory = ReasonScreen.audioDirectory;
+  ReasonScreen.recorder = () => rec;
+  ReasonScreen.audioDirectory = () async => Directory.systemTemp;
+  addTearDown(() {
+    ReasonScreen.recorder = recorder;
+    ReasonScreen.audioDirectory = directory;
+  });
+  return rec;
 }
 
 /// Como num celular novo: ainda não passou pela primeira inicialização.
@@ -777,6 +837,7 @@ void main() {
       });
 
       testWidgets('correia mostra problemas de correia; envio só aparece com erro', (tester) async {
+        fakeMic();
         final c = await startApp(tester, size);
         await enterPin(tester, demoPin);
         await tapKey(tester, 'order-o3');
@@ -787,13 +848,76 @@ void main() {
         expect(find.byKey(const Key('reason-hot')), findsNothing);
 
         expect(find.byKey(const Key('sync-attention')), findsNothing);
-        c.read(sessionProvider.notifier).setSync(SyncState.attention);
+        // Recusa do painel na fila: aí sim o aviso aparece.
+        final dir = Directory.systemTemp.createTempSync('zelo-aviso');
+        final original = OutboxNotifier.directory;
+        addTearDown(() => OutboxNotifier.directory = original);
+        OutboxNotifier.directory = () async => dir;
+        await tester.runAsync(() => c.read(outboxProvider.notifier).add(OutboxOp(
+              opId: newOpId(),
+              workerId: 'w1',
+              type: 'answer',
+              payload: const {},
+              createdAt: DateTime.now(),
+              rejected: true,
+            )));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('sync-attention')), findsOneWidget);
         await drainTimers(tester);
       });
     });
   }
+
+  group('microfone na tela de motivo', () {
+    Future<FakeSpeaker> abrirProblema(WidgetTester tester) async {
+      final voz = FakeSpeaker();
+      await startApp(tester, const Size(412, 915), speaker: voz);
+      await enterPin(tester, demoPin);
+      await tapKey(tester, 'order-o1');
+      await tapKey(tester, 'recognize-ok');
+      await tapKey(tester, 'answer-problem');
+      return voz;
+    }
+
+    testWidgets('primeiro uso só pede a permissão; soltar enquanto o microfone liga para a gravação', (tester) async {
+      final mic = fakeMic()..allowOnAsk = true;
+      final voz = await abrirProblema(tester);
+      await tester.longPress(find.byKey(const Key('reason-mic')));
+      await tester.pumpAndSettle();
+      expect(mic.asked, 1);
+      expect(mic.started, isEmpty, reason: 'o dedo soltou no pedido do Android: não grava sozinho');
+      expect(voz.said.last, Phrases.micAllowed);
+
+      mic.starting = Completer();
+      await tester.longPress(find.byKey(const Key('reason-mic')));
+      await tester.pumpAndSettle();
+      expect(mic.started, hasLength(1));
+      expect(mic.stops, 0);
+      mic.starting!.complete();
+      await tester.pumpAndSettle();
+      expect(mic.stops, 1, reason: 'soltou antes de o microfone ligar: para logo depois');
+      expect(voz.said.last, 'Áudio guardado.');
+      await drainTimers(tester);
+    });
+
+    testWidgets('sem permissão fala pedindo ajuda e "Outro" segue sem áudio', (tester) async {
+      fakeMic();
+      final voz = await abrirProblema(tester);
+      final c = ProviderScope.containerOf(tester.element(find.byType(ReasonScreen)));
+      // A grade só monta o que cabe: rola até "Outro problema", a última figura.
+      await tester.scrollUntilVisible(find.byKey(const Key('reason-other')), 200,
+          scrollable: find.descendant(of: find.byType(GridView), matching: find.byType(Scrollable)));
+      await tapKey(tester, 'reason-other');
+      await alcancar(tester, 'reason-done');
+      expect(c.read(sessionProvider).answersFor('o1'), isEmpty, reason: '"Outro" pede o áudio');
+      await tester.longPress(find.byKey(const Key('reason-mic')));
+      await tester.pumpAndSettle();
+      expect(voz.said.last, Phrases.micDenied);
+      await alcancar(tester, 'reason-done');
+      expect(c.read(sessionProvider).answersFor('o1')['i1']!.reason, 'other');
+      await drainTimers(tester);
+    });
+  });
 
   test('cada componente tem seus problemas e sempre "outro"', () {
     for (final kind in ComponentKind.values) {

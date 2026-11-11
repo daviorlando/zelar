@@ -245,6 +245,96 @@ void main() {
       expect(c.read(outboxProvider), isEmpty);
     });
 
+    test('gravação que falha não impede as seguintes', () async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      // Uma pasta no lugar do arquivo temporário: a gravação falha como num disco cheio.
+      final bloqueio = Directory('${dir.path}/fila.json.tmp')..createSync();
+      final n = c.read(outboxProvider.notifier);
+      await expectLater(n.addAnswer(workerId: 'w1', orderId: 'o', itemId: 'i1', result: 'ok', at: DateTime.now()), throwsA(isA<FileSystemException>()));
+      bloqueio.deleteSync();
+      await n.addAnswer(workerId: 'w1', orderId: 'o', itemId: 'i2', result: 'ok', at: DateTime.now());
+      final c2 = ProviderContainer();
+      addTearDown(c2.dispose);
+      await c2.read(outboxProvider.notifier).load();
+      expect(c2.read(outboxProvider).map((o) => o.payload['itemId']), ['i1', 'i2']);
+    });
+
+    test('dois funcionários no mesmo celular: o lote não passa na frente do colega', () async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final n = c.read(outboxProvider.notifier);
+      await n.addAnswer(workerId: 'A', orderId: 'o', itemId: 'i1', result: 'ok', at: DateTime.now());
+      await n.addAnswer(workerId: 'B', orderId: 'o', itemId: 'i2', result: 'ok', at: DateTime.now());
+      await n.add(OutboxOp(opId: newOpId(), workerId: 'A', type: 'finish', payload: {'orderId': 'o'}, createdAt: DateTime.now()));
+      respond = (req) {
+        final ops = (jsonDecode(req.body) as Map)['ops'] as List;
+        return http.Response(jsonEncode({'results': [for (final o in ops) {'opId': o['opId'], 'status': 'accepted'}]}), 200);
+      };
+      await n.flush();
+      final lotes = [for (final r in sent) jsonDecode((r as http.Request).body) as Map];
+      expect([for (final l in lotes) '${l['workerId']}:${[for (final o in l['ops'] as List) o['type']].join(',')}'], ['A:answer', 'B:answer', 'A:finish']);
+      expect(c.read(outboxProvider), isEmpty);
+    });
+
+    test('resposta e foto gravadas juntas; a cópia apaga a origem', () async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final foto = File('${dir.path}/camera.jpg')..writeAsBytesSync([1, 2, 3]);
+      await c.read(outboxProvider.notifier).addAnswer(workerId: 'w1', orderId: 'o', itemId: 'i1', result: 'problem', at: DateTime.now(), photoPath: foto.path);
+      final c2 = ProviderContainer();
+      addTearDown(c2.dispose);
+      await c2.read(outboxProvider.notifier).load();
+      final ops = c2.read(outboxProvider);
+      expect(ops.map((o) => o.type), ['answer', 'media']);
+      expect(File(ops[1].payload['path'] as String).readAsBytesSync(), [1, 2, 3]);
+      expect(foto.existsSync(), isFalse, reason: 'a foto do cache não fica para trás');
+    });
+
+    test('desfazer tira da fila a foto ainda não enviada do item', () async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final n = c.read(outboxProvider.notifier);
+      final foto = File('${dir.path}/camera.jpg')..writeAsBytesSync([1, 2, 3]);
+      await n.addAnswer(workerId: 'w1', orderId: 'o', itemId: 'i1', result: 'problem', at: DateTime.now(), photoPath: foto.path);
+      final guardada = File(c.read(outboxProvider)[1].payload['path'] as String);
+      await n.addAnswer(workerId: 'w1', orderId: 'o', itemId: 'i2', result: 'problem', at: DateTime.now(), photoPath: (File('${dir.path}/outra.jpg')..writeAsBytesSync([4])).path);
+      await n.addClear(workerId: 'w1', orderId: 'o', itemId: 'i1');
+      expect([for (final o in c.read(outboxProvider)) '${o.type}:${o.payload['itemId']}'], ['answer:i1', 'answer:i2', 'media:i2', 'clear:i1']);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(guardada.existsSync(), isFalse);
+    });
+
+    test('recusada há mais de uma semana sai da fila com a mídia; a recente fica', () async {
+      final midia = File('${dir.path}/velha.jpg')..writeAsBytesSync([1]);
+      final velha = DateTime.now().subtract(OutboxNotifier.dropRejectedAfter + const Duration(hours: 1));
+      OutboxOp op(String type, DateTime quando, {String? path}) => OutboxOp(
+            opId: newOpId(),
+            workerId: 'w1',
+            type: type,
+            payload: {'itemId': 'i1', 'path': ?path},
+            createdAt: quando,
+            rejected: true,
+            reason: 'ordem já finalizada, validada ou cancelada',
+            rejectedAt: quando,
+          );
+      final recente = op('answer', DateTime.now());
+      File('${dir.path}/fila.json').writeAsStringSync(jsonEncode([
+        op('answer', velha).toJson(),
+        op('media', velha, path: midia.path).toJson(),
+        recente.toJson(),
+      ]));
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final n = c.read(outboxProvider.notifier);
+      await n.load();
+      await n.flush();
+      expect(c.read(outboxProvider).map((o) => o.opId), [recente.opId]);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(midia.existsSync(), isFalse);
+      expect(sent, isEmpty, reason: 'recusada não é enviada de novo');
+    });
+
     http.Response aceitaTudo(http.Request req) {
       final ops = (jsonDecode(req.body) as Map)['ops'] as List;
       return http.Response(jsonEncode({'results': [for (final o in ops) {'opId': o['opId'], 'status': 'accepted'}]}), 200);

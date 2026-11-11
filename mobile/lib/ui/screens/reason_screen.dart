@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,9 +9,9 @@ import 'package:record/record.dart';
 
 import '../../audio/phrases.dart';
 import '../../audio/speaker.dart';
-import '../../data/fixtures.dart';
 import '../../data/orders_repo.dart';
 import '../../domain/models.dart';
+import '../../domain/reasons.dart';
 import '../../state/session.dart';
 import '../flow.dart';
 import '../theme.dart';
@@ -26,6 +27,10 @@ class ReasonScreen extends ConsumerStatefulWidget {
   final int index;
   final ReasonKind kind;
 
+  /// Trocáveis nos testes (sem plugins de plataforma).
+  static AudioRecorder Function() recorder = AudioRecorder.new;
+  static Future<Directory> Function() audioDirectory = getTemporaryDirectory;
+
   @override
   ConsumerState<ReasonScreen> createState() => _ReasonScreenState();
 }
@@ -38,12 +43,22 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   late final item = order.items[widget.index];
   late final component = order.equipment.component(item.componentId);
   late final reasons = widget.kind == ReasonKind.problem ? problemsByKind[component.kind]! : blockReasonsFor(item);
-  final _recorder = AudioRecorder();
+  final _recorder = ReasonScreen.recorder();
   Timer? _limit;
   String? _reason;
   String? _photoPath;
   String? _audioPath;
   var _recording = false;
+
+  /// Dedo ainda no botão laranja. Soltar enquanto o microfone liga não pode deixá-lo
+  /// gravando sozinho até o limite.
+  var _holding = false;
+
+  /// O celular não deixa o Zelo usar o microfone: "Outro" segue sem áudio.
+  var _noMic = false;
+
+  /// A resposta levou a foto e o áudio: a fila copia e apaga. Senão, apagam ao sair.
+  var _answered = false;
 
   String get _prompt => widget.kind == ReasonKind.problem ? Phrases.problem(component.shortName) : Phrases.blocked;
 
@@ -60,7 +75,16 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   void dispose() {
     _limit?.cancel();
     _recorder.dispose();
+    if (!_answered) {
+      _discard(_photoPath);
+      _discard(_audioPath);
+    }
     super.dispose();
+  }
+
+  /// Foto refeita, áudio regravado ou tela abandonada: o arquivo não fica no celular.
+  void _discard(String? path) {
+    if (path != null) File(path).delete().ignore();
   }
 
   Future<void> _takePhoto() async {
@@ -68,6 +92,7 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
       // Compressão do escopo: no máximo 1600 px no lado maior.
       final photo = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, maxHeight: 1600, imageQuality: 70);
       if (photo == null || !mounted) return;
+      _discard(_photoPath);
       setState(() => _photoPath = photo.path);
       ref.read(eventLogProvider.notifier).add('foto', item.id);
       ref.read(speakerProvider).say('Foto guardada.');
@@ -77,25 +102,42 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
   }
 
   Future<void> _startRecording() async {
+    _holding = true;
     try {
-      if (!await _recorder.hasPermission()) return;
+      if (!await _recorder.hasPermission(request: false)) {
+        // Primeiro uso: o pedido do Android cobre a tela e o dedo solta nele. Esta vez só
+        // pede; grava quando a pessoa segurar de novo.
+        final allowed = await _recorder.hasPermission();
+        if (!mounted) return;
+        setState(() => _noMic = !allowed);
+        ref.read(eventLogProvider.notifier).add('microfone', allowed ? 'liberado' : 'negado');
+        ref.read(speakerProvider).say(allowed ? Phrases.micAllowed : Phrases.micDenied);
+        return;
+      }
+      if (!_holding) return;
       await ref.read(speakerProvider).stop();
-      final dir = await getApplicationDocumentsDirectory();
+      // No cache: o que não virar resposta não fica no celular. A fila copia o que vale.
+      final dir = await ReasonScreen.audioDirectory();
       final path = '${dir.path}/relato_${item.id}_${DateTime.now().millisecondsSinceEpoch}.m4a';
       await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 32000, numChannels: 1, sampleRate: 22050), path: path);
+      if (!mounted) return;
       setState(() => _recording = true);
       _limit = Timer(_maxRecording, _stopRecording);
+      // Soltou enquanto o microfone ligava: para já.
+      if (!_holding) await _stopRecording();
     } catch (e) {
       ref.read(eventLogProvider.notifier).add('erro áudio', '$e');
     }
   }
 
   Future<void> _stopRecording() async {
+    _holding = false;
     _limit?.cancel();
     if (!_recording) return;
     try {
       final path = await _recorder.stop();
       if (!mounted) return;
+      if (path != _audioPath) _discard(_audioPath);
       setState(() {
         _recording = false;
         _audioPath = path;
@@ -112,10 +154,11 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
     ref.read(speakerProvider).say(id == 'other' ? Phrases.chosenOther(spoken) : Phrases.chosen(spoken));
   }
 
-  /// "Outro" exige ao menos o áudio explicando.
-  bool get _canFinish => _reason != null && (_reason != 'other' || _audioPath != null);
+  /// "Outro" exige ao menos o áudio explicando, se o celular deixar gravar.
+  bool get _canFinish => _reason != null && (_reason != 'other' || _audioPath != null || _noMic);
 
   void _finish() {
+    _answered = true;
     final outcome = widget.kind == ReasonKind.problem ? Outcome.problem : Outcome.blocked;
     ref
         .read(sessionProvider.notifier)
@@ -217,8 +260,11 @@ class _ReasonScreenState extends ConsumerState<ReasonScreen> {
               Expanded(
                 // Segurar para falar.
                 child: GestureDetector(
+                  key: const Key('reason-mic'),
                   onLongPressStart: (_) => _startRecording(),
                   onLongPressEnd: (_) => _stopRecording(),
+                  // O pedido de permissão (ou uma ligação) cancela o toque em vez de soltar.
+                  onLongPressCancel: _stopRecording,
                   child: _MediaButton(
                     color: ZeloColors.mic,
                     icon: _recording ? Icons.fiber_manual_record : Icons.mic,

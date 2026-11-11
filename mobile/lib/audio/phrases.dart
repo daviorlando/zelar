@@ -26,6 +26,11 @@ abstract final class Phrases {
   // Botões desativados: por que ainda não funcionam.
   static const chooseFigureFirst = 'Primeiro toque numa figura.';
   static const recordOtherFirst = 'Segure o botão laranja e conte o que aconteceu.';
+
+  // Microfone.
+  static const micAllowed = 'Microfone liberado. Agora segure o botão laranja enquanto fala.';
+  static const micDenied = 'O celular não deixou o Zelo usar o microfone. Peça ajuda ao gestor. '
+      'Por agora, siga sem áudio: escolha a figura e toque no botão verde, Pronto.';
   static const typeNumberFirst = 'Primeiro digite o número nas teclas.';
   static String answerMissing(int missing) =>
       'Ainda ${missing == 1 ? 'falta 1 item' : 'faltam $missing itens'}. Toque no ponto de interrogação.';

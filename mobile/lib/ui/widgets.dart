@@ -9,7 +9,6 @@ import '../audio/phrases.dart';
 import '../audio/speaker.dart';
 import '../domain/models.dart';
 import '../state/outbox.dart';
-import '../state/session.dart';
 import 'theme.dart';
 
 /// Botão grande de resposta. Toque longo fala o que o botão faz, para quem não lê;
@@ -198,10 +197,8 @@ class SyncStatusIcon extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Envio é implícito: o ícone só aparece quando algo foi recusado ou está parado há mais de 24 h.
-    final sync = ref.watch(sessionProvider.select((s) => s.sync));
     ref.watch(outboxProvider);
-    final stuck = ref.read(outboxProvider.notifier).needsAttention;
-    if (sync != SyncState.attention && !stuck) return const SizedBox.shrink();
+    if (!ref.read(outboxProvider.notifier).needsAttention) return const SizedBox.shrink();
     return IconButton(
       key: const Key('sync-attention'),
       iconSize: 36,

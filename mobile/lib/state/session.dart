@@ -56,7 +56,6 @@ class SessionState {
     this.answers = const {},
     this.finished = const {},
     this.changed = const {},
-    this.sync = SyncState.savedLocal,
     this.previous,
     this.previousUntil,
   });
@@ -81,7 +80,6 @@ class SessionState {
   /// concluído, então numa ordem devolvida isto diz se o funcionário corrigiu algo.
   /// Não sobrevive a reiniciar o app: no pior caso a confirmação ao concluir aparece à toa.
   final Set<String> changed;
-  final SyncState sync;
 
   bool lockedFor(String workerId) => lockedUntil[workerId]?.isAfter(DateTime.now()) ?? false;
 
@@ -95,7 +93,6 @@ class SessionState {
     Map<String, Map<String, Answer>>? answers,
     Set<String>? finished,
     Set<String>? changed,
-    SyncState? sync,
     bool clearPrevious = false,
   }) {
     return SessionState(
@@ -105,7 +102,6 @@ class SessionState {
       answers: answers ?? this.answers,
       finished: finished ?? this.finished,
       changed: changed ?? this.changed,
-      sync: sync ?? this.sync,
       previous: clearPrevious ? null : previous,
       previousUntil: clearPrevious ? null : previousUntil,
     );
@@ -260,7 +256,6 @@ class SessionNotifier extends Notifier<SessionState> {
     state = state.copyWith(
       answers: {...state.answers, orderId: order},
       changed: {...state.changed, orderId},
-      sync: SyncState.savedLocal,
     );
     final help = answer.outcome == Outcome.help;
     _sendAfter(_outbox, _outbox?.addAnswer(
@@ -283,13 +278,8 @@ class SessionNotifier extends Notifier<SessionState> {
       finished: {...state.finished}..remove(orderId),
       changed: {...state.changed, orderId},
     );
-    _sendAfter(_outbox, _outbox?.add(OutboxOp(
-      opId: newOpId(),
-      workerId: state.worker!.id,
-      type: 'clear',
-      payload: {'orderId': orderId, 'itemId': itemId},
-      createdAt: DateTime.now(),
-    )));
+    // Leva junto a foto e o áudio ainda não enviados deste item.
+    _sendAfter(_outbox, _outbox?.addClear(workerId: state.worker!.id, orderId: orderId, itemId: itemId));
   }
 
   void finish(String orderId) {
@@ -334,8 +324,6 @@ class SessionNotifier extends Notifier<SessionState> {
     }
     state = state.copyWith(answers: answers, finished: finished);
   }
-
-  void setSync(SyncState sync) => state = state.copyWith(sync: sync);
 
   /// Facilitador: zera respostas e bloqueio para o próximo participante.
   void reset() {

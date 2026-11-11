@@ -10,9 +10,6 @@ enum ItemType { inspection, action, measurement }
 /// `skipped` = o funcionário não soube responder: a ordem conclui e o gestor decide.
 enum Outcome { ok, problem, blocked, done, measured, help, skipped }
 
-/// Estados de sincronização visíveis ao trabalhador (escopo, seção 8.3).
-enum SyncState { savedLocal, sending, received, attention }
-
 /// Frequências da planilha (escopo, seção 7).
 enum Frequency {
   daily('diária'),

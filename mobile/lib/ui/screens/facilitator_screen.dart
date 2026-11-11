@@ -114,11 +114,6 @@ class _FacilitatorScreenState extends ConsumerState<FacilitatorScreen> {
                 onPressed: () => ref.read(outboxProvider.notifier).discardRejected(),
                 child: const Text('Descartar recusadas'),
               ),
-              for (final s in SyncState.values)
-                OutlinedButton(
-                  onPressed: () => ref.read(sessionProvider.notifier).setSync(s),
-                  child: Text('Estado: ${s.name}'),
-                ),
               FilledButton(
                 onPressed: () {
                   ref.read(sessionProvider.notifier).reset();

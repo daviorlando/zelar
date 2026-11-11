@@ -21,6 +21,7 @@ class OutboxOp {
     this.dependsOn,
     this.rejected = false,
     this.reason,
+    this.rejectedAt,
   });
 
   /// Gerado no celular; o servidor usa para não aplicar duas vezes.
@@ -37,6 +38,9 @@ class OutboxOp {
   bool rejected;
   String? reason;
 
+  /// Quando foi recusada: passado [OutboxNotifier.dropRejectedAfter], sai da fila sozinha.
+  DateTime? rejectedAt;
+
   bool get isMedia => type == 'media';
 
   Map<String, dynamic> toJson() => {
@@ -48,6 +52,7 @@ class OutboxOp {
         'dependsOn': dependsOn,
         'rejected': rejected,
         'reason': reason,
+        'rejectedAt': rejectedAt?.toIso8601String(),
       };
 
   factory OutboxOp.fromJson(Map<String, dynamic> j) => OutboxOp(
@@ -59,6 +64,7 @@ class OutboxOp {
         dependsOn: j['dependsOn'] as String?,
         rejected: j['rejected'] as bool? ?? false,
         reason: j['reason'] as String?,
+        rejectedAt: j['rejectedAt'] == null ? null : DateTime.parse(j['rejectedAt'] as String),
       );
 
   /// O que vai no lote de `POST /api/mobile/sync`.
@@ -84,11 +90,20 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
   /// Pendência mais velha que isto vira "Precisa de atenção".
   static const attentionAfter = Duration(hours: 24);
 
+  /// Recusada não é enviada de novo e o painel guarda a recusa (sync_op): o gestor já tem
+  /// o registro. Depois deste prazo ela sai da fila com a foto e o áudio, e o aviso
+  /// "Chame o gestor" apaga. Sem isso o aviso e os arquivos ficavam para sempre, porque
+  /// "Descartar recusadas" só existe na tela do facilitador, que não abre em produção.
+  static const dropRejectedAfter = Duration(days: 7);
+
   String? lastError;
   DateTime? lastSent;
   var _flushing = false;
   var _flushAgain = false;
   Future<void> _writing = Future.value();
+
+  /// Mídias cuja cópia para a pasta da fila ainda não terminou: não sobem pela metade.
+  final _copying = <String>{};
 
   /// Sobe a cada lote que o servidor respondeu. Quem baixa as ordens confere este
   /// número: um download iniciado antes do envio não traz a resposta recém-enviada.
@@ -102,7 +117,12 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
 
   int get pending => state.where((o) => !o.rejected).length;
 
-  Future<File> _file() async => File('${(await directory()).path}/fila.json');
+  /// Pasta da fila, guardada na primeira leitura ([load], ao abrir o app): depois disso,
+  /// responder não espera o sistema de arquivos para a resposta entrar na fila.
+  String? _dir;
+  Future<String> _folder() async => _dir ??= (await directory()).path;
+
+  Future<File> _file() async => File('${await _folder()}/fila.json');
 
   Future<void> load() async {
     try {
@@ -116,14 +136,18 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
   }
 
   /// Grava em arquivo temporário e troca: um corte de energia não deixa o arquivo pela metade.
+  /// Uma gravação por vez, na ordem. A que falhar (disco cheio) devolve o erro a quem a
+  /// espera, mas não derruba as seguintes: cada uma leva a fila inteira e tenta de novo.
   Future<void> _save() {
     final snapshot = jsonEncode([for (final o in state) o.toJson()]);
-    return _writing = _writing.then((_) async {
+    final write = _writing.then((_) async {
       final file = await _file();
       final tmp = File('${file.path}.tmp');
       await tmp.writeAsString(snapshot, flush: true);
       await tmp.rename(file.path);
     });
+    _writing = write.then((_) {}, onError: (_) {});
+    return write;
   }
 
   Future<void> add(OutboxOp op) async {
@@ -144,8 +168,26 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
     String? audioPath,
   }) async {
     final opId = newOpId();
-    // A resposta entra na fila na hora; a cópia da mídia vem depois. Assim uma
-    // atualização das ordens no meio da cópia não deixa de ver esta resposta.
+    final dir = '${_dir ?? await _folder()}/midia';
+    // Resposta e mídias entram na fila juntas, numa gravação só, com o destino da cópia
+    // já escolhido: o app morrer no meio não deixa a resposta subir sem a foto. Se a
+    // cópia não chegar a terminar, o envio acha o arquivo faltando e pede atenção.
+    // A cópia vem depois: uma atualização das ordens no meio dela já vê esta resposta.
+    final media = <(OutboxOp, String)>[
+      for (final (kind, path) in [('photo', photoPath), ('audio', audioPath)])
+        if (path != null && File(path).existsSync())
+          (
+            OutboxOp(
+              opId: newOpId(),
+              workerId: workerId,
+              type: 'media',
+              payload: {'itemId': itemId, 'kind': kind, 'path': '$dir/${newOpId()}${path.contains('.') ? path.substring(path.lastIndexOf('.')) : ''}'},
+              createdAt: DateTime.now(),
+              dependsOn: opId,
+            ),
+            path,
+          ),
+    ];
     state = [
       ...state,
       OutboxOp(
@@ -162,40 +204,54 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
         },
         createdAt: DateTime.now(),
       ),
+      for (final (op, _) in media) op,
     ];
-    await _save();
-    final media = <OutboxOp>[];
-    for (final (kind, path) in [('photo', photoPath), ('audio', audioPath)]) {
-      if (path == null) continue;
-      final kept = await _keep(path);
-      if (kept == null) continue;
-      media.add(OutboxOp(
-        opId: newOpId(),
-        workerId: workerId,
-        type: 'media',
-        payload: {'itemId': itemId, 'kind': kind, 'path': kept},
-        createdAt: DateTime.now(),
-        dependsOn: opId,
-      ));
+    _copying.addAll([for (final (op, _) in media) op.opId]);
+    try {
+      await _save();
+      for (final (op, source) in media) {
+        await _keep(source, op.payload['path'] as String);
+      }
+    } finally {
+      _copying.removeAll([for (final (op, _) in media) op.opId]);
     }
-    if (media.isEmpty) return;
-    state = [...state, ...media];
-    await _save();
   }
 
-  /// A câmera grava no cache, que o Android pode limpar: copia para a pasta da fila.
-  Future<String?> _keep(String path) async {
+  /// Foto e áudio ficam no cache, que o Android pode limpar: copia para a pasta da fila e
+  /// apaga a origem. Copia com outro nome e troca: arquivo pela metade nunca sobe.
+  Future<void> _keep(String source, String target) async {
     try {
-      final source = File(path);
-      if (!await source.exists()) return null;
-      final dir = Directory('${(await directory()).path}/midia');
-      await dir.create(recursive: true);
-      final target = '${dir.path}/${newOpId()}${path.contains('.') ? path.substring(path.lastIndexOf('.')) : ''}';
-      await source.copy(target);
-      return target;
+      await Directory(File(target).parent.path).create(recursive: true);
+      await File(source).copy('$target.tmp');
+      await File('$target.tmp').rename(target);
+      await File(source).delete();
     } catch (e) {
       debugPrint('não guardou a mídia: $e');
-      return null;
+    }
+  }
+
+  /// Desfazer: a foto e o áudio ainda não enviados daquele item saem da fila. Senão o
+  /// painel mostraria o item sem resposta (ou "ok", depois) com a foto do problema.
+  Future<void> addClear({required String workerId, required String orderId, required String itemId}) async {
+    final media = state.where((o) => o.isMedia && o.payload['itemId'] == itemId && !_copying.contains(o.opId)).toList();
+    state = [
+      for (final o in state)
+        if (!media.contains(o)) o,
+      OutboxOp(
+        opId: newOpId(),
+        workerId: workerId,
+        type: 'clear',
+        payload: {'orderId': orderId, 'itemId': itemId},
+        createdAt: DateTime.now(),
+      ),
+    ];
+    await _save();
+    _deleteFiles(media);
+  }
+
+  void _deleteFiles(Iterable<OutboxOp> ops) {
+    for (final o in ops.where((o) => o.isMedia)) {
+      File(o.payload['path'] as String).delete().ignore();
     }
   }
 
@@ -224,7 +280,17 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
     } finally {
       c.close();
       _flushing = false;
-      await _save();
+      final now = DateTime.now();
+      final old = state.where((o) => o.rejected && now.difference(o.rejectedAt ?? o.createdAt) > dropRejectedAfter).toList();
+      state = state.where((o) => !old.contains(o)).toList();
+      // Só confirma o que saiu da fila; se falhar, a próxima gravação leva tudo de novo.
+      // Não pode impedir quem chamou de baixar as ordens.
+      try {
+        await _save();
+        _deleteFiles(old);
+      } catch (e) {
+        debugPrint('fila de envio não gravada: $e');
+      }
     }
   }
 
@@ -233,8 +299,10 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
       final next = state.where((o) => !o.rejected && !o.isMedia).toList();
       if (next.isEmpty) return;
       // Um lote por funcionário: o servidor confere os setores de quem respondeu.
+      // Só a sequência seguida dele: pular a vez de outro no mesmo celular mudaria a ordem
+      // (o "concluir" de um chegaria antes da resposta do colega, recusada como finalizada).
       final worker = next.first.workerId;
-      final batch = next.where((o) => o.workerId == worker).take(batchSize).toList();
+      final batch = next.takeWhile((o) => o.workerId == worker).take(batchSize).toList();
       final res = await c
           .post(
             Uri.parse('${WorkersRepo.api}/api/mobile/sync'),
@@ -274,7 +342,8 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
         if (ids.contains(o.opId) || ids.contains(o.dependsOn))
           (o
             ..rejected = true
-            ..reason = why)
+            ..reason = why
+            ..rejectedAt = DateTime.now())
         else
           o,
     ];
@@ -282,7 +351,8 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
 
   Future<void> _sendMedia(http.Client c) async {
     final waiting = state.where((o) => !o.rejected && !o.isMedia).map((o) => o.opId).toSet();
-    for (final op in state.where((o) => o.isMedia && !o.rejected && !waiting.contains(o.dependsOn)).toList()) {
+    final ready = state.where((o) => o.isMedia && !o.rejected && !waiting.contains(o.dependsOn) && !_copying.contains(o.opId));
+    for (final op in ready.toList()) {
       final file = File(op.payload['path'] as String);
       if (!await file.exists()) {
         _reject({op.opId}, 'arquivo sumiu do celular');
@@ -308,8 +378,10 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
 
   /// Facilitador: tira da fila o que o servidor recusou (depois de anotar com o gestor).
   Future<void> discardRejected() async {
+    final rejected = state.where((o) => o.rejected).toList();
     state = state.where((o) => !o.rejected).toList();
     await _save();
+    _deleteFiles(rejected);
   }
 }
 
