@@ -167,6 +167,24 @@ describe("funções", () => {
     await db.query("update public.work_order set status = 'open' where id = $1", [b.ordem]);
   });
 
+  it("validar, devolver e cancelar não alcançam a outra empresa", async () => {
+    await db.query("update public.work_order set status = 'awaiting_validation' where id = $1", [b.ordem]);
+    expect((await rpc("validar_ordem", { ordem: b.ordem, aceita_pulados: true }, a.token)).ok).toBe(false);
+    expect((await rpc("devolver_ordem", { ordem: b.ordem, motivo: "x" }, a.token)).ok).toBe(false);
+    expect((await rpc("cancelar_ordem", { ordem: b.ordem, motivo: "x" }, a.token)).ok).toBe(false);
+    const { rows } = await db.query("select status from public.work_order where id = $1", [b.ordem]);
+    expect(rows[0].status).toBe("awaiting_validation");
+    await db.query("update public.work_order set status = 'open' where id = $1", [b.ordem]);
+  });
+
+  it("mudança de situação pela API fica na auditoria, com o gestor como autor", async () => {
+    await db.query("update public.work_order set status = 'awaiting_validation' where id = $1", [a.ordem]);
+    await rest(`work_order?id=eq.${a.ordem}`, a.token, { method: "PATCH", body: JSON.stringify({ status: "done" }) });
+    const { rows } = await db.query("select actor, action from public.audit_log where work_order_id = $1 order by id desc limit 1", [a.ordem]);
+    expect(rows[0]).toEqual({ actor: a.userId, action: "validar" });
+    await db.query("update public.work_order set status = 'open' where id = $1", [a.ordem]);
+  });
+
   it("recalcular_ordem não muda a outra empresa", async () => {
     await db.query("update public.work_order set status = 'blocked' where id = $1", [b.ordem]);
     await rpc("recalcular_ordem", { ordem: b.ordem }, a.token);
