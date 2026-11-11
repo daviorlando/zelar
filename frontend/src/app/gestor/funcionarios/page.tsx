@@ -276,7 +276,7 @@ function AcoesDaLinha({ w }: { w: Linha }) {
       )}
       {w.active && (
         <ConfirmButton
-          formAction={rotateBadge.bind(null, w.id)}
+          acao={rotateBadge.bind(null, w.id)}
           className={button({ size: "small" })}
           message={`Gerar crachá novo para ${w.name}? O crachá impresso antes deixa de funcionar.`}
         >
@@ -284,7 +284,7 @@ function AcoesDaLinha({ w }: { w: Linha }) {
         </ConfirmButton>
       )}
       <ConfirmButton
-        formAction={setActive.bind(null, w.id)}
+        acao={setActive.bind(null, w.id, !w.active)}
         className={button({
           size: "small",
           variant: w.active ? "danger" : "default",

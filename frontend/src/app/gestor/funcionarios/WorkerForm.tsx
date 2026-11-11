@@ -7,6 +7,7 @@ import { Card } from "@/components/zelo/card";
 import { Caixa } from "@/components/zelo/checkbox";
 import { Notice } from "@/components/zelo/feedback";
 import { Field, Input } from "@/components/zelo/input";
+import { toast } from "sonner";
 import { reduzirImagem } from "@/lib/imagem";
 import { PIN_LENGTH } from "@/lib/pin";
 import type { OpcaoDeSetor } from "@/lib/setores";
@@ -38,7 +39,9 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
             try {
               dados.set("photo", await reduzirImagem(foto), "foto.jpg");
             } catch {
-              // Imagem que o navegador não abre: segue a original, e o servidor confere o tamanho.
+              // Imagem que o navegador não abre (HEIC, SVG quebrado…) também não abriria no painel nem no celular.
+              toast.error("Não consegui abrir esta imagem. Tente outra foto.");
+              return;
             }
           }
           action(dados);

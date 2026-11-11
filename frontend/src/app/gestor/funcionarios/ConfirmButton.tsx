@@ -1,14 +1,26 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import { useTransition, type ComponentProps } from "react";
+import { toast } from "sonner";
 
-/** Botão de envio que pede confirmação antes (ações que não se desfazem). */
-export function ConfirmButton({ message, ...props }: ComponentProps<"button"> & { message: string }) {
+/** Botão que pede confirmação antes (ações que não se desfazem) e avisa se a ação falhar. */
+export function ConfirmButton({
+  message,
+  acao,
+  ...props
+}: ComponentProps<"button"> & { message: string; acao: () => Promise<{ erro?: string }> }) {
+  const [ocupado, iniciar] = useTransition();
   return (
     <button
       {...props}
-      onClick={(e) => {
-        if (!window.confirm(message)) e.preventDefault();
+      type="button"
+      disabled={ocupado || props.disabled}
+      onClick={() => {
+        if (!window.confirm(message)) return;
+        iniciar(async () => {
+          const r = await acao();
+          if (r.erro) toast.error(r.erro);
+        });
       }}
     />
   );

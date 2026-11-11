@@ -25,7 +25,8 @@ export async function saveWorker(_: SaveState, formData: FormData): Promise<Save
   if (!name) return { error: "Informe o nome." };
   if (!pin) return { error: `O PIN tem ${PIN_LENGTH} números.` };
   const hasPhoto = photo instanceof File && photo.size > 0;
-  if (hasPhoto && !photo.type.startsWith("image/")) return { error: "A foto precisa ser uma imagem." };
+  // O painel já manda JPEG reduzido; os mesmos tipos que o bucket aceita.
+  if (hasPhoto && !["image/jpeg", "image/png", "image/webp"].includes(photo.type)) return { error: "A foto precisa ser JPEG, PNG ou WebP." };
   if (hasPhoto && photo.size > MAX_PHOTO) return { error: "Foto grande demais (máximo 4 MB)." };
 
   const supabase = await supabaseForUser();
@@ -34,12 +35,19 @@ export async function saveWorker(_: SaveState, formData: FormData): Promise<Save
     : await supabase.from("worker").insert({ name, pin, badge_token: newBadgeToken() }).select("id").single();
   if (saved.error) return { error: `Não foi possível salvar: ${saved.error.message}` };
 
-  // Setores: substitui a lista inteira pela marcada no formulário.
-  const removidos = await supabase.from("worker_sector").delete().eq("worker_id", saved.data.id);
+  // Setores: primeiro acrescenta os marcados, depois tira só os desmarcados. Se acrescentar falhar,
+  // a pessoa fica com os setores que já tinha, não sem nenhum (e o celular dela continua recebendo ordens).
   const inseridos = setores.length
-    ? await supabase.from("worker_sector").insert(setores.map((sector_code) => ({ worker_id: saved.data.id, sector_code })))
+    ? await supabase
+        .from("worker_sector")
+        .upsert(setores.map((sector_code) => ({ worker_id: saved.data.id, sector_code })), { ignoreDuplicates: true })
     : { error: null };
-  const erroSetor = removidos.error ?? inseridos.error;
+  const sobra = supabase.from("worker_sector").delete().eq("worker_id", saved.data.id);
+  // Códigos já filtrados para uma letra maiúscula acima: seguro na lista do filtro.
+  const removidos = inseridos.error
+    ? { error: null }
+    : await (setores.length ? sobra.not("sector_code", "in", `(${setores.join(",")})`) : sobra);
+  const erroSetor = inseridos.error ?? removidos.error;
   if (erroSetor) return { error: `Cadastro salvo, mas os setores falharam: ${erroSetor.message}` };
 
   if (hasPhoto) {
@@ -58,21 +66,25 @@ export async function saveWorker(_: SaveState, formData: FormData): Promise<Save
   redirect(`/gestor/funcionarios/${saved.data.id}?salvo=1`);
 }
 
-export async function setActive(id: string) {
+export async function setActive(id: string, ativo: boolean): Promise<{ erro?: string }> {
   const supabase = await supabaseForUser();
-  const { data } = await supabase.from("worker").select("active").eq("id", id).single();
-  if (data) await supabase.from("worker").update({ active: !data.active }).eq("id", id);
+  // Estado desejado, não inversão: um clique duplo não desativa e reativa.
+  const { error } = await supabase.from("worker").update({ active: ativo }).eq("id", id);
+  if (error) return { erro: `Não foi possível ${ativo ? "reativar" : "desativar"}: ${error.message}` };
   revalidatePath("/gestor/funcionarios");
+  return {};
 }
 
 /** Crachá perdido: novo código; o crachá impresso antes deixa de entrar. */
-export async function rotateBadge(id: string) {
+export async function rotateBadge(id: string): Promise<{ erro?: string }> {
   const supabase = await supabaseForUser();
-  const { data } = await supabase.from("worker").select("badge_version").eq("id", id).single();
-  if (!data) return;
-  await supabase
+  const { data, error: lido } = await supabase.from("worker").select("badge_version").eq("id", id).single();
+  if (lido) return { erro: `Não foi possível gerar o crachá novo: ${lido.message}` };
+  const { error } = await supabase
     .from("worker")
     .update({ badge_token: newBadgeToken(), badge_version: data.badge_version + 1 })
     .eq("id", id);
+  if (error) return { erro: `Não foi possível gerar o crachá novo: ${error.message}` };
   revalidatePath("/gestor/funcionarios");
+  return {};
 }
