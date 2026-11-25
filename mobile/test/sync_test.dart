@@ -225,6 +225,32 @@ void main() {
       expect(c.read(outboxProvider), isEmpty);
     });
 
+    test('banco fora do ar (503) não recusa nada; ignorada sai da fila sem pedir atenção', () async {
+      final c = ProviderContainer();
+      addTearDown(c.dispose);
+      final n = await fila(c);
+      respond = (_) => http.Response(jsonEncode({'error': 'painel indisponível, tente de novo'}), 503);
+      await n.flush();
+      expect(n.pending, 2);
+      expect(c.read(outboxProvider).any((o) => o.rejected), isFalse);
+
+      respond = (req) {
+        final ops = (jsonDecode(req.body) as Map)['ops'] as List;
+        return http.Response(
+          jsonEncode({
+            'results': [
+              {'opId': ops[0]['opId'], 'status': 'accepted', 'reason': null},
+              {'opId': ops[1]['opId'], 'status': 'ignored', 'reason': 'item já tem resposta mais nova'},
+            ],
+          }),
+          200,
+        );
+      };
+      await n.flush();
+      expect(c.read(outboxProvider), isEmpty);
+      expect(n.needsAttention, isFalse);
+    });
+
     test('foto sobe só depois da resposta aceita', () async {
       final c = ProviderContainer();
       addTearDown(c.dispose);

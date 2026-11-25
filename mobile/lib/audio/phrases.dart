@@ -57,7 +57,7 @@ abstract final class Phrases {
   static const activationInvalid = 'Código errado ou vencido. Peça um novo ao gestor.';
   static const activationWrongLogin = 'Email ou senha errados. Confira e tente de novo.';
   static const activationNotManager = 'Esta conta não é de gestor. Entre com a conta do gestor da empresa.';
-  static const activationWait = 'Muitas tentativas. Espere um minuto e tente de novo.';
+  static const activationWait = 'Muitas tentativas. Espere alguns minutos e tente de novo.';
   static const activationOffline = 'Sem internet. Conecte o celular e tente de novo.';
   static const noWorkers = 'A lista de funcionários ainda não foi baixada. Chame o gestor.';
   static const allDone = 'Tudo feito por hoje. Obrigado.';

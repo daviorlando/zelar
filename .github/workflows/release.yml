@@ -1,0 +1,110 @@
+name: Release do app
+
+# Uma tag v* (ex.: v1.2.0) gera os APKs assinados e publica o Release. Tag com "-" (v1.2.0-rc1)
+# sai como pré-lançamento e não aparece em /baixar.
+#
+# Configure em Settings → Secrets and variables → Actions:
+#   variável ZELAR_API              endereço do painel, sem / no final
+#   segredos ZELAR_KEYSTORE_B64     a chave (.jks) em base64
+#            ZELAR_KEYSTORE_PASSWORD, ZELAR_KEY_ALIAS, ZELAR_KEY_PASSWORD
+# Nunca passe ZELAR_DEVICE_KEY no build: com ela o app pula o pareamento do celular.
+
+on:
+  push:
+    tags: ["v*"]
+
+# Ações fixadas por commit: a chave de assinatura passa pelo job de build. Só o job de
+# publicação pode escrever no repositório, e ele não vê a chave.
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Confere a versão da tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          app="$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml)"
+          if [ "${tag%%-*}" != "$app" ]; then
+            echo "::error::A tag ($tag) não bate com a versão do pubspec.yaml ($app)."; exit 1
+          fi
+          [ -n "${{ vars.ZELAR_API }}" ] || { echo "::error::Falta a variável ZELAR_API."; exit 1; }
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter test
+
+      - name: Chave de assinatura
+        env:
+          KEYSTORE_B64: ${{ secrets.ZELAR_KEYSTORE_B64 }}
+        run: |
+          [ -n "$KEYSTORE_B64" ] || { echo "::error::Falta o segredo ZELAR_KEYSTORE_B64."; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/zelar.jks"
+          echo "ZELAR_KEYSTORE_FILE=$RUNNER_TEMP/zelar.jks" >> "$GITHUB_ENV"
+
+      - name: APKs
+        env:
+          ZELAR_KEYSTORE_PASSWORD: ${{ secrets.ZELAR_KEYSTORE_PASSWORD }}
+          ZELAR_KEY_ALIAS: ${{ secrets.ZELAR_KEY_ALIAS }}
+          ZELAR_KEY_PASSWORD: ${{ secrets.ZELAR_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --split-per-abi \
+            --target-platform android-arm,android-arm64 \
+            --dart-define=ZELAR_API=${{ vars.ZELAR_API }}
+          versao="${GITHUB_REF_NAME#v}"
+          mkdir -p ../dist
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "../dist/zelar-$versao-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "../dist/zelar-$versao-arm32.apk"
+          (cd ../dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          rm -f "$ZELAR_KEYSTORE_FILE"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: apks
+          path: dist/
+          if-no-files-found: error
+
+  publicar:
+    needs: apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: apks
+          path: dist/
+      - name: Publica o Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          versao="${GITHUB_REF_NAME#v}"
+          pre=""; case "$versao" in *-*) pre="--prerelease" ;; esac
+          cat > notas.md <<EOF
+          ## Instalar no celular (Android 10 ou mais novo)
+
+          1. Baixe **zelar-$versao-arm64.apk** (celular antigo: **zelar-$versao-arm32.apk**).
+          2. Abra o arquivo. Se o Android pedir, toque em **Configurações** e ligue **Permitir desta fonte**.
+          3. Abra o Zelar e digite o código que o gestor mostra no painel, na tela **Celulares**.
+
+          Página de download: ${{ vars.ZELAR_API }}/baixar
+
+          Celular com uma versão anterior à 1.2.0: confira que não há nada esperando envio, desinstale o app antigo e instale este.
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* --title "Zelar $versao" --notes-file notas.md $pre

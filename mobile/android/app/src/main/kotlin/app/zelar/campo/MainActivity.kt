@@ -1,4 +1,4 @@
-package br.com.ecogesso.zelar
+package app.zelar.campo
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -12,7 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "br.com.ecogesso.zelar/sistema")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.zelar.campo/sistema")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "abrirConfiguracoesDeVoz" -> result.success(abrirConfiguracoesDeVoz())
