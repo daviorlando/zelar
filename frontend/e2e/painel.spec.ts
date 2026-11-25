@@ -244,6 +244,8 @@ async function conferirImagemCarregada(img: Locator) {
 test("painel do gestor, de empresa vazia até a validação", async ({ browser }: { browser: Browser }) => {
   test.setTimeout(15 * 60 * 1000);
 
+  // As tentativas erradas de ativação das execuções anteriores contam para o limite por IP.
+  executar("delete from activation_attempt");
   empresaId = executar(`insert into company (name) values ('${EMPRESA}') returning id`).split("\n")[0].trim();
   const criado = await adm.auth.admin.createUser({ email: EMAIL, password: SENHA, email_confirm: true });
   expect(criado.error).toBeNull();
@@ -399,7 +401,7 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     expect(() => executar(`begin; update worker set pin = '{10,0,0,0}' where id = '${funcionarioId}'; rollback;`)).toThrow(/worker_pin_check/);
   });
 
-  await etapa("foto do funcionário: arquivo errado e grande dão mensagem, troca funciona", async () => {
+  await etapa("foto do funcionário: arquivo errado e imagem quebrada dão mensagem, troca funciona", async () => {
     const pathAntes = umValor<string>(`select photo_path from worker where id = '${funcionarioId}'`);
     await page.goto(`/gestor/funcionarios/${funcionarioId}`);
     await expect(page.locator("#pin")).toHaveValue("0009");
@@ -408,12 +410,14 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
 
     await entrada.setInputFiles({ name: "nota.txt", mimeType: "text/plain", buffer: Buffer.from("não sou imagem") });
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page.getByText("A foto precisa ser uma imagem.")).toBeVisible();
+    await expect(page.getByText("A foto precisa ser JPEG, PNG ou WebP.")).toBeVisible();
     expect(umValor(`select photo_path from worker where id = '${funcionarioId}'`)).toBe(pathAntes);
 
+    // "JPEG" que o navegador não abre: recusado antes de reduzir e enviar (a redução de foto grande é a etapa seguinte).
     await entrada.setInputFiles({ name: "grande.jpg", mimeType: "image/jpeg", buffer: Buffer.alloc(4.5 * 1024 * 1024, 1) });
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page.getByText("Foto grande demais (máximo 4 MB).")).toBeVisible();
+    await expect(page.getByText("Não consegui abrir esta imagem. Tente outra foto.")).toBeVisible();
+    expect(umValor(`select photo_path from worker where id = '${funcionarioId}'`)).toBe(pathAntes);
 
     await entrada.setInputFiles({ name: "nova.png", mimeType: "image/png", buffer: PNG_PEQUENO });
     await page.getByRole("button", { name: "Salvar" }).click();
@@ -829,7 +833,8 @@ test("painel do gestor, de empresa vazia até a validação", async ({ browser }
     await expect(aviso(page, "Esta ordem tem item impedido")).toBeVisible();
     expect(situacao(ordem)).toBe("awaiting_validation");
     expect(umValor(`select count(*) from audit_log where work_order_id = '${ordem}'`)).toBe(0);
-    executar(`update work_order set status = 'blocked' where id = '${ordem}'`);
+    // Volta à mão para "impedida": o gatilho registraria um "devolver" que ninguém decidiu.
+    executar(`update work_order set status = 'blocked' where id = '${ordem}'; delete from audit_log where work_order_id = '${ordem}'`);
 
     // Liberar devolve só o impedido a pendente; o pulado continua lá.
     await page.goto(`/gestor/quadro?ordem=${ordem}`);

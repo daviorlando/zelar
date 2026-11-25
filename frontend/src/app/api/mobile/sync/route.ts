@@ -1,4 +1,4 @@
-import { autenticarAparelho, ehUuid } from "@/lib/aparelho";
+import { autenticarAparelho, ehUuid, indisponivel } from "@/lib/aparelho";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 const MAX_OPS = 50;
@@ -27,16 +27,18 @@ export async function POST(request: Request) {
   );
   if (!validas) return Response.json({ error: "operação sem opId válido" }, { status: 400 });
 
-  // Funcionário de outra empresa é recusa definitiva, igual a funcionário desativado.
+  // Funcionário de outra empresa é recusa definitiva do lote. Desativado não: o banco grava
+  // cada operação como recusada, para o gestor ver o que ficou de fora.
   const supabase = supabaseAdmin();
-  const { data: pessoa } = await supabase.from("worker").select("id").eq("id", corpo.workerId).eq("company_id", aparelho.companyId).maybeSingle();
+  const { data: pessoa, error: falhaPessoa } = await supabase.from("worker").select("id").eq("id", corpo.workerId).eq("company_id", aparelho.companyId).maybeSingle();
+  if (falhaPessoa) return indisponivel(falhaPessoa);
   if (!pessoa) return Response.json({ error: "funcionário inexistente ou desativado" }, { status: 403 });
 
   const { data, error } = await supabase.rpc("sincronizar", { funcionario: corpo.workerId, operacoes: corpo.ops });
   if (error) {
-    const desativado = error.message.includes("funcionário");
-    if (!desativado) console.error("sincronizar falhou:", error.message);
-    return Response.json({ error: desativado ? error.message : "falha ao gravar" }, { status: desativado ? 403 : 500 });
+    // "funcionário inexistente": apagado entre a conferência acima e a chamada.
+    if (error.message.includes("funcionário")) return Response.json({ error: error.message }, { status: 403 });
+    return indisponivel(error);
   }
   return Response.json({
     results: (data as { op_id: string; status: string; motivo: string | null }[]).map((r) => ({

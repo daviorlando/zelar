@@ -6,6 +6,7 @@ import { Empty } from "@/components/zelar/feedback";
 import { PageHeader } from "@/components/zelar/misc";
 import { Table, TD, TH, TR } from "@/components/zelar/table";
 import { supabaseForUser } from "@/lib/supabase/server";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { excluirSetor, salvarSetor } from "../actions";
 import { BotaoExcluir, FormularioDeSetor } from "../formularios";
 
@@ -33,19 +34,19 @@ export default function SetoresPage() {
 async function Lista() {
   await connection();
   const supabase = await supabaseForUser();
-  const [setores, equipamentos, pessoas] = await Promise.all([
+  // Acima de 1000 linhas o banco cortava a contagem sem avisar: equipamentos vêm somados do
+  // banco; funcionários em páginas (conta também os desativados, que ainda impedem excluir).
+  const [setores, resumo, pessoas] = await Promise.all([
     supabase.from("sector").select("code, name").order("code"),
-    supabase.from("equipment").select("sector_code").is("parent_id", null).is("archived_at", null).range(0, 9999),
-    supabase.from("worker_sector").select("sector_code").range(0, 9999),
+    supabase.from("resumo_do_setor").select("code, equipamentos"),
+    todasAsLinhas((de, ate) =>
+      supabase.from("worker_sector").select("sector_code").order("worker_id").order("sector_code").range(de, ate),
+    ),
   ]);
   if (setores.error) return <Card>Não consegui carregar: {setores.error.message}</Card>;
-  const contar = (linhas: { sector_code: string }[] | null) => {
-    const m = new Map<string, number>();
-    for (const l of linhas ?? []) m.set(l.sector_code, (m.get(l.sector_code) ?? 0) + 1);
-    return m;
-  };
-  const nEquip = contar(equipamentos.data);
-  const nPessoas = contar(pessoas.data);
+  const nEquip = new Map((resumo.data ?? []).map((r) => [r.code, r.equipamentos]));
+  const nPessoas = new Map<string, number>();
+  for (const l of pessoas.data) nPessoas.set(l.sector_code, (nPessoas.get(l.sector_code) ?? 0) + 1);
 
   return (
     <Card title={`${setores.data.length} setores`} actions={<FormularioDeSetor acao={salvarSetor} />}>

@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/zelar/misc";
 import { Table, TD, TH, TR } from "@/components/zelar/table";
 import { FREQUENCIAS, type Equipamento, type Frequencia } from "@/lib/plano";
 import { supabaseForUser } from "@/lib/supabase/server";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { cn } from "@/lib/utils";
 import { salvarEquipamento } from "./actions";
 import { FormularioDeEquipamento } from "./formularios";
@@ -42,14 +43,20 @@ async function Lista({ searchParams }: PageProps<"/gestor/equipamentos">) {
   const q = typeof sp.q === "string" ? sp.q.trim().toUpperCase() : "";
 
   const supabase = await supabaseForUser();
+  // Em páginas: acima de 1000 linhas o banco cortava equipamentos e atividades sem avisar.
   const [eq, itens, cadastro] = await Promise.all([
-    supabase
-      .from("equipment")
-      .select("id, tag, name, parent_id, sector_code, brand, model, power_cv, rpm, working_temp, lubricant")
-      .is("archived_at", null)
-      .order("tag")
-      .range(0, 9999),
-    supabase.from("plan_item").select("equipment_id, frequency").eq("status", "active").range(0, 9999),
+    todasAsLinhas((de, ate) =>
+      supabase
+        .from("equipment")
+        .select("id, tag, name, parent_id, sector_code, brand, model, power_cv, rpm, working_temp, lubricant")
+        .is("archived_at", null)
+        .order("tag")
+        .order("id")
+        .range(de, ate),
+    ),
+    todasAsLinhas((de, ate) =>
+      supabase.from("plan_item").select("equipment_id, frequency").eq("status", "active").order("id").range(de, ate),
+    ),
     supabase.from("sector").select("code").order("code"),
   ]);
   if (eq.error) return <Card>Não consegui carregar: {eq.error.message}</Card>;
@@ -104,7 +111,7 @@ async function Lista({ searchParams }: PageProps<"/gestor/equipamentos">) {
             href={s ? `/gestor/equipamentos?setor=${s}` : "/gestor/equipamentos"}
             aria-current={filtro === s ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-9 items-center rounded-full px-3 text-sm transition-colors",
+              "inline-flex min-h-9 max-md:min-h-11 items-center rounded-full px-3 text-sm transition-colors",
               filtro === s ? "bg-primary-soft font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
