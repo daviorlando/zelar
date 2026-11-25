@@ -1,7 +1,8 @@
-import { autenticarAparelho, ehUuid, funcionarioDaEmpresa } from "@/lib/aparelho";
+import { autenticarAparelho, ehUuid, funcionarioDaEmpresa, indisponivel } from "@/lib/aparelho";
 import { FOTO_DE_MAQUINA } from "@/lib/plano";
 import { hojeNaUnidade, JANELA_DIAS, somarDias } from "@/lib/schedule";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
 type Linha = {
   id: string;
@@ -46,29 +47,37 @@ export async function GET(request: Request) {
   if (!ehUuid(worker)) return Response.json({ error: "funcionário inválido" }, { status: 400 });
 
   const supabase = supabaseAdmin();
-  if (!(await funcionarioDaEmpresa(worker, aparelho.companyId))) return Response.json({ error: "funcionário inexistente ou desativado" }, { status: 403 });
+  const ativo = await funcionarioDaEmpresa(worker, aparelho.companyId);
+  if (ativo instanceof Response) return ativo;
+  if (!ativo) return Response.json({ error: "funcionário inexistente ou desativado" }, { status: 403 });
 
-  const { data: setores } = await supabase.from("worker_sector").select("sector_code").eq("worker_id", worker);
+  // Sem os setores, a lista viria só com as atribuídas e o celular perderia as outras.
+  const { data: setores, error: falhaSetores } = await supabase.from("worker_sector").select("sector_code").eq("worker_id", worker);
+  if (falhaSetores) return indisponivel(falhaSetores);
   const codigos = (setores ?? []).map((s) => s.sector_code).filter((c) => /^[A-Z]$/.test(c));
   const hoje = hojeNaUnidade();
 
-  let consulta = supabase
-    .from("work_order")
-    .select(
-      `id, equipment_id, frequency, period_start, due_date, status, returned_reason, released_note,
-       work_order_item (id, result, measured_value, block_reason,
-         plan_item:plan_item_id (id, equipment_id, source_row, item_type, instruction_kind, activity, measurement_unit, measurement_min, measurement_max))`,
-    )
-    .eq("company_id", aparelho.companyId)
-    .in("status", ["open", "in_progress", "blocked"])
-    .lte("period_start", somarDias(hoje, JANELA_DIAS))
-    .order("due_date")
-    .range(0, 9999);
-  consulta = codigos.length
-    ? consulta.or(`sector_code.in.(${codigos.join(",")}),assigned_worker_id.eq.${worker}`)
-    : consulta.eq("assigned_worker_id", worker);
-  const { data, error } = await consulta;
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  // Em páginas: lista cortada em 1000 ordens faria o celular apagar as que ficaram de fora.
+  const pagina = (de: number, ate: number) => {
+    const consulta = supabase
+      .from("work_order")
+      .select(
+        `id, equipment_id, frequency, period_start, due_date, status, returned_reason, released_note,
+         work_order_item (id, result, measured_value, block_reason,
+           plan_item:plan_item_id (id, equipment_id, source_row, item_type, instruction_kind, activity, measurement_unit, measurement_min, measurement_max))`,
+      )
+      .eq("company_id", aparelho.companyId)
+      .in("status", ["open", "in_progress", "blocked"])
+      .lte("period_start", somarDias(hoje, JANELA_DIAS))
+      .order("due_date")
+      .order("id")
+      .range(de, ate);
+    return codigos.length
+      ? consulta.or(`sector_code.in.(${codigos.join(",")}),assigned_worker_id.eq.${worker}`)
+      : consulta.eq("assigned_worker_id", worker);
+  };
+  const { data, error } = await todasAsLinhas(pagina);
+  if (error) return indisponivel(error);
   const ordens = (data as unknown as Linha[]).filter((o) => o.work_order_item.length > 0);
   // O banco não garante ordem (muda depois de cada resposta): o funcionário vê sempre a mesma sequência.
   const fila = (i: Linha["work_order_item"][number]) => i.plan_item.source_row ?? Number.MAX_SAFE_INTEGER;
@@ -78,16 +87,16 @@ export async function GET(request: Request) {
   for (const o of ordens) for (const i of o.work_order_item) planItems.set(i.plan_item.id, i.plan_item);
 
   const raizes = [...new Set(ordens.map((o) => o.equipment_id))];
-  const equipamentos = raizes.length
-    ? ((
-        await supabase
-          .from("equipment")
-          .select("id, tag, name, parent_id, brand, model, power_cv, rpm, photo_path")
-          .eq("company_id", aparelho.companyId)
-          .or(`id.in.(${raizes.join(",")}),parent_id.in.(${raizes.join(",")})`)
-          .order("tag")
-      ).data ?? [])
-    : [];
+  const maquinas = raizes.length
+    ? await supabase
+        .from("equipment")
+        .select("id, tag, name, parent_id, brand, model, power_cv, rpm, photo_path")
+        .eq("company_id", aparelho.companyId)
+        .or(`id.in.(${raizes.join(",")}),parent_id.in.(${raizes.join(",")})`)
+        .order("tag")
+    : null;
+  if (maquinas?.error) return indisponivel(maquinas.error);
+  const equipamentos = maquinas?.data ?? [];
 
   // Foto da máquina: mesmo prazo das fotos de funcionário; o celular baixa e guarda.
   const fotos = equipamentos.flatMap((e) => (!e.parent_id && e.photo_path ? [e.photo_path as string] : []));

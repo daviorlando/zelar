@@ -7,13 +7,16 @@ import { supabaseDoNavegador } from "@/lib/supabase/browser";
 
 /** Agrupa a rajada de eventos de um lote do celular numa atualização só. */
 const AGRUPAR_MS = 250;
+/** No máximo uma atualização a cada 5 s: com vários celulares enviando, cada evento recarregava a página. */
+const INTERVALO_MS = 5_000;
 /** Rede de segurança caso a conexão ao vivo caia sem avisar. */
 const RESERVA_MS = 30_000;
 
 /**
- * Mantém o quadro em dia sozinho: cada mudança em work_order (resposta do celular,
- * validação de outro gestor, geração de ordens) recarrega os dados da página, com
- * os filtros atuais. Não desenha cartões: quem desenha continua sendo o servidor.
+ * Mantém o quadro em dia sozinho: cada mudança em work_order (toda resposta do celular,
+ * que recalcula a ordem mesmo sem mudar a situação; validação de outro gestor; geração
+ * de ordens) recarrega os dados da página com os filtros atuais, no máximo uma vez a
+ * cada 5 s. Não desenha cartões: quem desenha continua sendo o servidor.
  */
 export function AoVivo() {
   const router = useRouter();
@@ -22,11 +25,20 @@ export function AoVivo() {
   useEffect(() => {
     const supabase = supabaseDoNavegador();
     let espera: ReturnType<typeof setTimeout> | undefined;
+    let ultima = 0;
     let desmontado = false;
 
+    // Já agendada: o evento entra nela. Senão agenda para o fim do intervalo (nunca perde o último).
     const atualizar = () => {
-      clearTimeout(espera);
-      espera = setTimeout(() => router.refresh(), AGRUPAR_MS);
+      if (espera) return;
+      espera = setTimeout(
+        () => {
+          espera = undefined;
+          ultima = Date.now();
+          router.refresh();
+        },
+        Math.max(AGRUPAR_MS, ultima + INTERVALO_MS - Date.now()),
+      );
     };
 
     const canal = supabase.channel("quadro-de-ordens").on(

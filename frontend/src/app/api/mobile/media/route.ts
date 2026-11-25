@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { autenticarAparelho, ehUuid, funcionarioDaEmpresa } from "@/lib/aparelho";
+import { autenticarAparelho, ehUuid, funcionarioDaEmpresa, indisponivel } from "@/lib/aparelho";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 /** Abaixo dos 4,5 MB que a Vercel aceita no corpo do pedido. */
@@ -33,17 +33,25 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || file.size === 0) return Response.json({ error: "arquivo ausente" }, { status: 400 });
   if (file.size > MAX_BYTES) return Response.json({ error: "arquivo maior que 4 MB" }, { status: 413 });
 
-  if (!(await funcionarioDaEmpresa(workerId, aparelho.companyId))) return Response.json({ error: "funcionário inválido" }, { status: 403 });
+  const ativo = await funcionarioDaEmpresa(workerId, aparelho.companyId);
+  if (ativo instanceof Response) return ativo;
+  if (!ativo) return Response.json({ error: "funcionário inválido" }, { status: 403 });
   const supabase = supabaseAdmin();
   // O item precisa ser de uma ordem do setor do funcionário (ou atribuída a ele).
-  const { data: item } = await supabase
+  const { data: item, error: falhaItem } = await supabase
     .from("work_order_item")
-    .select("id, work_order:work_order_id (sector_code, assigned_worker_id)")
+    .select("id, executed_by, work_order:work_order_id (sector_code, assigned_worker_id)")
     .eq("id", itemId)
     .eq("company_id", aparelho.companyId)
-    .maybeSingle<{ id: string; work_order: { sector_code: string; assigned_worker_id: string | null } }>();
+    .maybeSingle<{ id: string; executed_by: string | null; work_order: { sector_code: string; assigned_worker_id: string | null } }>();
+  if (falhaItem) return indisponivel(falhaItem);
   if (!item) return Response.json({ error: "item não encontrado" }, { status: 404 });
-  const { data: setores } = await supabase.from("worker_sector").select("sector_code").eq("worker_id", workerId);
+  // A resposta em vigor precisa ser de quem manda a foto. Se a deste celular foi ignorada (outro
+  // funcionário respondeu depois) ou desfeita, a mídia não vale mais e não vai para a resposta do
+  // colega. Responde 200 sem guardar: o celular tira da fila sem chamar o gestor.
+  if (item.executed_by !== workerId) return Response.json({ status: "ignored", reason: "item respondido por outro funcionário" });
+  const { data: setores, error: falhaSetores } = await supabase.from("worker_sector").select("sector_code").eq("worker_id", workerId);
+  if (falhaSetores) return indisponivel(falhaSetores);
   const permitido =
     item.work_order.assigned_worker_id === workerId || (setores ?? []).some((s) => s.sector_code === item.work_order.sector_code);
   if (!permitido) return Response.json({ error: "item de outro setor" }, { status: 403 });
@@ -56,7 +64,7 @@ export async function POST(request: Request) {
 
   const envio = await supabase.storage.from("evidence").upload(path, bytes, { contentType, upsert: false });
   const jaExistia = envio.error && /exist|duplicate/i.test(envio.error.message);
-  if (envio.error && !jaExistia) return Response.json({ error: envio.error.message }, { status: 500 });
+  if (envio.error && !jaExistia) return indisponivel(envio.error);
 
   const { error } = await supabase
     .from("evidence")
@@ -64,6 +72,6 @@ export async function POST(request: Request) {
       { work_order_item_id: itemId, kind, storage_path: path, sha256, size_bytes: bytes.length, uploaded_by: workerId },
       { onConflict: "storage_path", ignoreDuplicates: true },
     );
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return indisponivel(error);
   return Response.json({ status: jaExistia ? "duplicate" : "accepted", path });
 }

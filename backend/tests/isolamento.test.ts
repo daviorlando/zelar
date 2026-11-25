@@ -252,6 +252,44 @@ describe("correções do teste com vários agentes", () => {
     expect(volta.ok).toBe(false);
   });
 
+  it("foto não sai da pasta da própria linha com '..' nem com outra barra", async () => {
+    for (const ruim of [`${a.equipamento}/../${b.equipamento}/1.jpg`, `${a.equipamento}/..`, `${a.equipamento}/x/1.jpg`, `${a.equipamento}/.oculto`, `${a.equipamento}/`]) {
+      const r = await rest(`equipment?id=eq.${a.equipamento}`, a.token, { method: "PATCH", body: JSON.stringify({ photo_path: ruim }) });
+      expect(r.ok, ruim).toBe(false);
+      const w = await rest(`worker?id=eq.${a.worker}`, a.token, { method: "PATCH", body: JSON.stringify({ photo_path: ruim.replace(a.equipamento, a.worker) }) });
+      expect(w.ok, ruim).toBe(false);
+    }
+    // Os caminhos que o painel grava continuam valendo.
+    const e = await rest(`equipment?id=eq.${a.equipamento}`, a.token, { method: "PATCH", body: JSON.stringify({ photo_path: `${a.equipamento}/1764000000000.jpg` }) });
+    expect(e.ok).toBe(true);
+    const w = await rest(`worker?id=eq.${a.worker}`, a.token, { method: "PATCH", body: JSON.stringify({ photo_path: `${a.worker}/1764000000000` }) });
+    expect(w.ok).toBe(true);
+    await db.query("update public.equipment set photo_path = null where id = $1", [a.equipamento]);
+    await db.query("update public.worker set photo_path = null where id = $1", [a.worker]);
+  });
+
+  it("gestor não grava código pela API: o erro não revela código de outra empresa", async () => {
+    const existente = randomUUID();
+    await db.query("insert into public.device_activation (code_hash, company_id, name, expires_at) values ($1, $2, 'x', now() + interval '10 minutes')", [existente, b.id]);
+    const curto = new Date(Date.now() + 600_000).toISOString();
+    const repetido = await rest("device_activation", a.token, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ code_hash: existente, name: "x", expires_at: curto }) });
+    const novo = await rest("device_activation", a.token, { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ code_hash: randomUUID(), name: "x", expires_at: curto }) });
+    expect(repetido.ok).toBe(false);
+    expect(repetido.status).toBe(novo.status);
+    expect((await repetido.json()).code).toBe((await novo.json()).code);
+    // A tela de Celulares ainda lê os códigos da própria empresa.
+    expect((await rest("device_activation?select=name,expires_at,used_at", a.token)).ok).toBe(true);
+  });
+
+  it("limite de ativação: só a rota reserva tentativas, e cada reserva conta a anterior", async () => {
+    expect((await rpc("reservar_tentativa_de_ativacao", { ip: "x" }, a.token)).ok).toBe(false);
+    const ip = randomUUID();
+    const { rows: [um] } = await db.query("select * from public.reservar_tentativa_de_ativacao($1)", [ip]);
+    const { rows: [dois] } = await db.query("select * from public.reservar_tentativa_de_ativacao($1)", [ip]);
+    expect([um.tentativas, dois.tentativas]).toEqual([1, 2]);
+    await db.query("delete from public.activation_attempt where ip_hash = $1", [ip]);
+  });
+
   it("anônimo não tem permissão em tabela nenhuma, e ninguém faz TRUNCATE", async () => {
     const { rows } = await db.query(
       `select table_name, grantee, privilege_type from information_schema.role_table_grants
@@ -352,5 +390,85 @@ describe("regras novas", () => {
     expect(rows.map((l) => l.status)).toEqual(["accepted", "accepted"]);
     const ordem = await db.query("select status from public.work_order where id = $1", [b.ordem]);
     expect(ordem.rows[0].status).toBe("awaiting_validation");
+  });
+});
+
+describe("sincronização", () => {
+  const sincronizar = async (worker: string, ops: object[]) =>
+    (await db.query("select * from public.sincronizar($1, $2)", [worker, JSON.stringify(ops)])).rows as { op_id: string; status: string; motivo: string | null }[];
+  const resposta = (itemId: string, result: string, quando: number) => ({ opId: randomUUID(), type: "answer", itemId, result, deviceTime: new Date(quando).toISOString() });
+  const colega = async (c: Empresa) => {
+    const { rows: [w] } = await db.query("insert into public.worker (company_id, name, pin, badge_token) values ($1, 'Colega', '{4,5,6,7}', $2) returning id", [c.id, randomUUID()]);
+    await db.query("insert into public.worker_sector (worker_id, sector_code) values ($1, 'A')", [w.id]);
+    return w.id as string;
+  };
+
+  it("funcionário desativado: o lote fica recusado e guardado para o gestor", async () => {
+    const c = await criarEmpresa("saiu");
+    await db.query("update public.worker set active = false where id = $1", [c.worker]);
+    const op = resposta(c.item, "ok", Date.now());
+    const r = await sincronizar(c.worker, [op]);
+    expect(r.map((l) => [l.status, l.motivo])).toEqual([["rejected", "funcionário desativado"]]);
+    const { rows } = await db.query("select status, reason from public.sync_op where company_id = $1 and op_id = $2", [c.id, op.opId]);
+    expect(rows).toEqual([{ status: "rejected", reason: "funcionário desativado" }]);
+    const item = await db.query("select result from public.work_order_item where id = $1", [c.item]);
+    expect(item.rows[0].result).toBeNull();
+  });
+
+  it("celular atrasado não troca nem desfaz a resposta do colega", async () => {
+    const c = await criarEmpresa("atrasado");
+    const outro = await colega(c);
+    const agora = Date.now();
+    expect((await sincronizar(c.worker, [resposta(c.item, "ok", agora)]))[0].status).toBe("accepted");
+
+    const velha = await sincronizar(outro, [resposta(c.item, "problem", agora - 5 * 60_000)]);
+    expect(velha.map((l) => [l.status, l.motivo])).toEqual([["ignored", "item já tem resposta mais nova"]]);
+    const desfazer = await sincronizar(outro, [{ opId: randomUUID(), type: "clear", itemId: c.item }]);
+    expect(desfazer.map((l) => [l.status, l.motivo])).toEqual([["ignored", "item respondido por outro funcionário"]]);
+    const { rows } = await db.query("select result, executed_by from public.work_order_item where id = $1", [c.item]);
+    expect(rows[0]).toEqual({ result: "ok", executed_by: c.worker });
+    const { rows: guardadas } = await db.query("select status from public.sync_op where worker_id = $1", [outro]);
+    expect(guardadas.map((l) => l.status)).toEqual(["ignored", "ignored"]);
+
+    // Relógio do colega até 2 min atrasado: a resposta que chegou depois vale.
+    expect((await sincronizar(outro, [resposta(c.item, "problem", agora - 60_000)]))[0].status).toBe("accepted");
+    const depois = await db.query("select result from public.work_order_item where id = $1", [c.item]);
+    expect(depois.rows[0].result).toBe("problem");
+  });
+
+  it("desfazer apaga as fotos do item", async () => {
+    const c = await criarEmpresa("foto");
+    await sincronizar(c.worker, [resposta(c.item, "problem", Date.now())]);
+    await db.query(
+      "insert into public.evidence (work_order_item_id, kind, storage_path, sha256, size_bytes, uploaded_by) values ($1, 'photo', $2, 'x', 1, $3)",
+      [c.item, `${c.item}/photo-${randomUUID()}.jpg`, c.worker],
+    );
+    expect((await sincronizar(c.worker, [{ opId: randomUUID(), type: "clear", itemId: c.item }]))[0].status).toBe("accepted");
+    const { rowCount } = await db.query("select 1 from public.evidence where work_order_item_id = $1", [c.item]);
+    expect(rowCount).toBe(0);
+  });
+
+  it("resposta que não muda a situação ainda toca a ordem (o quadro recebe o evento)", async () => {
+    const c = await criarEmpresa("quieta");
+    const agora = Date.now();
+    await sincronizar(c.worker, [resposta(c.item, "ok", agora)]);
+    const { rows: [antes] } = await db.query("select status, updated_at from public.work_order where id = $1", [c.ordem]);
+    expect(antes.status).toBe("in_progress");
+    await sincronizar(c.worker, [resposta(c.item, "problem", agora + 1000)]);
+    const { rows: [depois] } = await db.query("select status, updated_at from public.work_order where id = $1", [c.ordem]);
+    expect(depois.status).toBe("in_progress");
+    expect(depois.updated_at.getTime()).toBeGreaterThan(antes.updated_at.getTime());
+  });
+
+  it("resumo do setor conta no banco e só da própria empresa", async () => {
+    const c = await criarEmpresa("resumo");
+    const ler = async () => (await (await rest("resumo_do_setor?select=*", c.token)).json()) as Record<string, unknown>[];
+    expect(await ler()).toEqual([
+      { company_id: c.id, code: "A", equipamentos: 1, atividades: 1, responsaveis: 1, ordens_por_frequencia: { weekly: 1 }, tocado: false },
+    ]);
+    await sincronizar(c.worker, [resposta(c.item, "ok", Date.now())]);
+    expect((await ler())[0].tocado).toBe(true);
+    const anonimo = await rest("resumo_do_setor?select=code", null);
+    expect(anonimo.ok ? await anonimo.json() : []).toEqual([]);
   });
 });

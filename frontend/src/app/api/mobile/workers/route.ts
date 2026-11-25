@@ -1,4 +1,4 @@
-import { autenticarAparelho } from "@/lib/aparelho";
+import { autenticarAparelho, indisponivel } from "@/lib/aparelho";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { badgeHash, PHOTO_BUCKET, pinHash, type Worker } from "@/lib/workers";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     .select("id, name, pin, photo_path, badge_token, active, updated_at")
     .eq("company_id", aparelho.companyId)
     .order("name");
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) return indisponivel(error);
   const workers = data as (Worker & { updated_at: string })[];
 
   const paths = workers.flatMap((w) => (w.photo_path ? [w.photo_path] : []));

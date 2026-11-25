@@ -6,6 +6,16 @@ export type Aparelho = { companyId: string; deviceId: string | null; legado: boo
 
 const naoAutorizado = () => Response.json({ error: "aparelho não autorizado" }, { status: 401 });
 
+/**
+ * O banco não respondeu: 503, que o celular trata como "tente de novo". Responder 401, 403
+ * ou 404 nessa hora fazia o celular recusar o lote, descartar a foto ou pedir nova ativação.
+ * O texto do erro fica só no log.
+ */
+export function indisponivel(error: { message: string }) {
+  console.error("banco indisponível:", error.message);
+  return Response.json({ error: "painel indisponível, tente de novo" }, { status: 503 });
+}
+
 export const hashDe = (segredo: string) => createHash("sha256").update(segredo).digest("hex");
 
 /** Token entregue ao aparelho na ativação: só o hash fica no banco. */
@@ -22,12 +32,13 @@ export async function autenticarAparelho(request: Request): Promise<Aparelho | R
   const token = request.headers.get("x-device-token");
   if (token) {
     const supabase = supabaseAdmin();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("device")
       .select("id, company_id, last_seen_at, company:company_id (active)")
       .eq("token_hash", hashDe(token))
       .is("revoked_at", null)
       .maybeSingle<{ id: string; company_id: string; last_seen_at: string | null; company: { active: boolean } }>();
+    if (error) return indisponivel(error);
     if (!data?.company?.active) return naoAutorizado();
     // Uma escrita por hora basta para saber quais aparelhos ainda estão em uso.
     if (!data.last_seen_at || Date.now() - Date.parse(data.last_seen_at) > 3_600_000) {
@@ -41,19 +52,21 @@ export async function autenticarAparelho(request: Request): Promise<Aparelho | R
   const empresa = process.env.ZELAR_LEGACY_COMPANY_ID ?? process.env.ZELO_LEGACY_COMPANY_ID;
   const recebida = request.headers.get("x-device-key") ?? "";
   if (!chave || !empresa || !sameSecret(recebida, chave)) return naoAutorizado();
-  const { data: ativa } = await supabaseAdmin().from("company").select("active").eq("id", empresa).maybeSingle();
+  const { data: ativa, error } = await supabaseAdmin().from("company").select("active").eq("id", empresa).maybeSingle();
+  if (error) return indisponivel(error);
   if (!ativa?.active) return naoAutorizado();
   return { companyId: empresa, deviceId: null, legado: true };
 }
 
-/** O funcionário existe, está ativo e é da empresa do aparelho? */
-export async function funcionarioDaEmpresa(workerId: string, companyId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin()
+/** O funcionário existe, está ativo e é da empresa do aparelho? Banco fora do ar: a resposta 503. */
+export async function funcionarioDaEmpresa(workerId: string, companyId: string): Promise<boolean | Response> {
+  const { data, error } = await supabaseAdmin()
     .from("worker")
     .select("active")
     .eq("id", workerId)
     .eq("company_id", companyId)
     .maybeSingle();
+  if (error) return indisponivel(error);
   return !!data?.active;
 }
 
