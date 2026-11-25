@@ -7,7 +7,13 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const PROJETO = "dhimklbptngnlayylswv";
+// SUPABASE_PROJECT_REF ou, sem ele, o começo de NEXT_PUBLIC_SUPABASE_URL (https://<projeto>.supabase.co).
+const PROJETO =
+  process.env.SUPABASE_PROJECT_REF?.trim() || /^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/.exec(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")?.[1];
+if (!PROJETO) {
+  console.error("Falta SUPABASE_PROJECT_REF em frontend/.env (Supabase → Project Settings → General → Project ID).");
+  process.exit(1);
+}
 const API = `https://api.supabase.com/v1/projects/${PROJETO}/config/auth`;
 const MODELOS = join(import.meta.dirname, "../../supabase/templates");
 

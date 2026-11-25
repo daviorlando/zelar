@@ -3,7 +3,8 @@
 import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { hashDe } from "@/lib/aparelho";
-import { supabaseForUser } from "@/lib/supabase/server";
+import { exigirGestor } from "@/lib/empresa";
+import { supabaseAdmin, supabaseForUser } from "@/lib/supabase/server";
 
 export type Resultado = { erro?: string; codigo?: string };
 
@@ -15,16 +16,25 @@ function novoCodigo() {
   return Array.from({ length: 8 }, () => letras[randomInt(letras.length)]).join("");
 }
 
-/** O código só existe nesta resposta; o banco guarda o hash. O RLS grava na empresa do gestor. */
+/**
+ * O código só existe nesta resposta; o banco guarda o hash. Só o servidor grava o código: com
+ * insert pela API, o erro de hash repetido contava ao gestor que o código existia em outra empresa.
+ * A mensagem de erro do banco também não volta para a tela, pelo mesmo motivo.
+ */
 export async function gerarCodigo(form: FormData): Promise<Resultado> {
+  const gestor = await exigirGestor();
+  if (!gestor) return { erro: "Entre no painel de novo." };
   const nome = String(form.get("nome") ?? "").trim();
   if (!nome) return { erro: "Dê um nome ao celular." };
   const codigo = novoCodigo();
-  const supabase = await supabaseForUser();
-  const { error } = await supabase
-    .from("device_activation")
-    .insert({ code_hash: hashDe(codigo), name: nome, expires_at: new Date(Date.now() + VALIDADE_MS).toISOString() });
-  if (error) return { erro: `Não foi possível gerar: ${error.message}` };
+  const { error } = await supabaseAdmin().from("device_activation").insert({
+    code_hash: hashDe(codigo),
+    name: nome,
+    company_id: gestor.empresaId,
+    created_by: gestor.id,
+    expires_at: new Date(Date.now() + VALIDADE_MS).toISOString(),
+  });
+  if (error) return { erro: "Não foi possível gerar o código. Tente de novo." };
   return { codigo };
 }
 
