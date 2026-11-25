@@ -41,8 +41,8 @@ export function Card({
       )}
     >
       {(title || actions) && (
-        <div className="mb-3 flex items-center justify-between gap-3">
-          {title && <h2 className="text-md font-semibold text-foreground">{title}</h2>}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          {title && <h2 className="text-md font-semibold whitespace-nowrap text-foreground">{title}</h2>}
           {actions}
         </div>
       )}

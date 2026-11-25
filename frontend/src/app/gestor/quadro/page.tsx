@@ -9,6 +9,7 @@ import { MOTIVO, nomeLegivel, type CartaoDaOrdem, type SituacaoDaOrdem } from "@
 import { hojeNaUnidade, periodoQueContem, somarDias } from "@/lib/schedule";
 import { setoresComAtividades } from "@/lib/setores";
 import { supabaseForUser } from "@/lib/supabase/server";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { cn } from "@/lib/utils";
 import { AoVivo } from "./ao-vivo";
 import { DetalheDaOrdem } from "./detalhe";
@@ -74,21 +75,26 @@ async function Conteudo({ searchParams }: PageProps<"/gestor/quadro">) {
   const limite = f.periodo === "hoje" ? hoje : f.periodo === "semana" ? periodoQueContem("weekly", hoje).period_end : null;
 
   const supabase = await supabaseForUser();
-  let consulta = supabase
-    .from("work_order")
-    .select("id, sector_code, frequency, due_date, status, returned_reason, equipment:equipment_id (tag, name), work_order_item (result, block_reason)")
-    .lte("period_start", hoje)
-    .neq("status", "cancelled")
-    // Concluídas: só as validadas na última semana.
-    .or(`status.neq.done,validated_at.gte.${somarDias(hoje, -7)}`)
-    .order("due_date")
-    .range(0, 4999);
-  // Fora do prazo do filtro, ainda aparece o que alguém já mexeu: o gestor não pode perder uma ordem concluída.
-  if (limite) consulta = consulta.or(`due_date.lte.${limite},status.neq.open`);
-  if (f.setor) consulta = consulta.eq("sector_code", f.setor);
-  if (f.freq) consulta = consulta.eq("frequency", f.freq);
+  // Em páginas: acima de 1000 ordens o banco cortava a lista sem avisar.
+  const pagina = (de: number, ate: number) => {
+    let consulta = supabase
+      .from("work_order")
+      .select("id, sector_code, frequency, due_date, status, returned_reason, equipment:equipment_id (tag, name), work_order_item (result, block_reason)")
+      .lte("period_start", hoje)
+      .neq("status", "cancelled")
+      // Concluídas: só as validadas na última semana.
+      .or(`status.neq.done,validated_at.gte.${somarDias(hoje, -7)}`)
+      .order("due_date")
+      .order("id")
+      .range(de, ate);
+    // Fora do prazo do filtro, ainda aparece o que alguém já mexeu: o gestor não pode perder uma ordem concluída.
+    if (limite) consulta = consulta.or(`due_date.lte.${limite},status.neq.open`);
+    if (f.setor) consulta = consulta.eq("sector_code", f.setor);
+    if (f.freq) consulta = consulta.eq("frequency", f.freq);
+    return consulta;
+  };
   const [{ data, error }, setores, iniciados] = await Promise.all([
-    consulta,
+    todasAsLinhas(pagina),
     setoresComAtividades(),
     supabase.from("sector").select("code", { count: "exact", head: true }).not("start_date", "is", null),
   ]);
@@ -190,7 +196,7 @@ function Pilula({ href, ativa, children }: { href: string; ativa: boolean; child
       scroll={false}
       aria-current={ativa ? "true" : undefined}
       className={cn(
-        "inline-flex min-h-8 shrink-0 items-center rounded-full px-3 text-sm transition-colors",
+        "inline-flex min-h-8 max-md:min-h-11 shrink-0 items-center rounded-full px-3 text-sm transition-colors",
         ativa ? "bg-primary-soft font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
