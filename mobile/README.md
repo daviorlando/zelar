@@ -1,17 +1,11 @@
-# zelar
+# App de campo do Zelar
 
-A new Flutter project.
+Flutter, Android 10+. Funciona sem internet, guarda as respostas no aparelho e envia quando há rede.
 
-## Getting Started
+```bash
+flutter pub get
+flutter run --dart-define=ZELAR_API=http://IP-DO-COMPUTADOR:3000   # painel local
+flutter test
+```
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Não passe `ZELAR_DEVICE_KEY` no build: com ela o app pula o pareamento. Sem `ZELAR_API`, o app abre com um trabalhador de teste. Para instalar em celulares, use o APK de https://github.com/daviorlando/zelar/releases/latest e o código de **Celulares** no painel; veja [docs/implantar.md](../docs/implantar.md#7-celulares).
