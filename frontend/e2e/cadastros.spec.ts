@@ -165,7 +165,7 @@ test.describe("cadastros e email", () => {
     await entrar(admin, SUPER.email, SUPER.senha);
     await admin.waitForURL("**/admin/empresas");
     await expect(admin.getByRole("heading", { name: "Empresas", exact: true })).toBeVisible();
-    await expect(admin.getByRole("heading", { name: "Eco Gesso", exact: true })).toBeVisible();
+    await expect(admin.getByRole("heading", { name: "Empresa Demonstração", exact: true })).toBeVisible();
   });
 
   test("cria empresa com gestor e grava empresa, perfil e aviso de senha", async () => {
@@ -488,11 +488,11 @@ test.describe("cadastros e email", () => {
     await doGestor.goto("/admin/empresas");
     await expect(doGestor).toHaveURL(/\/gestor\/quadro$/);
     await expect(doGestor.getByRole("button", { name: "Nova empresa" })).toHaveCount(0);
-    await expect(doGestor.getByText("Eco Gesso")).toHaveCount(0);
+    await expect(doGestor.getByText("Empresa Demonstração")).toHaveCount(0);
     // /admin não tem página: 404 para todos, sem dado nenhum.
     await doGestor.goto("/admin");
     await expect(doGestor.getByRole("button", { name: "Nova empresa" })).toHaveCount(0);
-    await expect(doGestor.getByText("Eco Gesso")).toHaveCount(0);
+    await expect(doGestor.getByText("Empresa Demonstração")).toHaveCount(0);
   });
 
   test("a lista de gestores mostra só os da empresa", async () => {

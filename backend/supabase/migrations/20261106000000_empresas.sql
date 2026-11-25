@@ -1,6 +1,7 @@
 -- Várias empresas no mesmo banco: cada linha pertence a uma empresa e o gestor só enxerga a sua.
--- Tudo o que já existe passa a ser da Eco Gesso. O painel antigo continua funcionando durante
--- a troca: quem insere não precisa mandar company_id (vem do gestor conectado ou da linha-pai).
+-- Num banco que já tinha dados (a instalação da Eco Gesso), tudo o que existe passa a ser da
+-- Eco Gesso. Numa instalação nova, vazia, nenhuma empresa é criada aqui: o super-admin cria as
+-- empresas pelo painel. Quem insere não precisa mandar company_id (vem do gestor ou da linha-pai).
 
 create table public.company (
   id uuid primary key default gen_random_uuid(),
@@ -9,7 +10,10 @@ create table public.company (
   created_at timestamptz not null default now()
 );
 
-insert into public.company (id, name) values ('e0000000-0000-4000-8000-000000000001', 'Eco Gesso');
+insert into public.company (id, name)
+select 'e0000000-0000-4000-8000-000000000001', 'Eco Gesso'
+where exists (select 1 from auth.users) or exists (select 1 from public.sector)
+   or exists (select 1 from public.worker) or exists (select 1 from public.plan_item);
 
 -- Perfil de quem entra no painel. Conta do Auth sem linha aqui não enxerga nada.
 create table public.app_user (
@@ -23,7 +27,8 @@ create table public.app_user (
 create index app_user_company on public.app_user (company_id);
 
 insert into public.app_user (user_id, company_id, role)
-select id, 'e0000000-0000-4000-8000-000000000001', 'manager' from auth.users;
+select u.id, c.id, 'manager' from auth.users u
+join public.company c on c.id = 'e0000000-0000-4000-8000-000000000001';
 
 /*
  * Empresa do gestor conectado. Consulta a tabela em vez de ler o token: desativar a empresa

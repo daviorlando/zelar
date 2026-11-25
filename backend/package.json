@@ -9,6 +9,7 @@
     "db:migrate": "tsx --env-file=../frontend/.env tools/db/migrate.ts",
     "db:super-admin": "tsx --env-file=../frontend/.env tools/db/super-admin.ts",
     "import:load": "tsx --env-file=../frontend/.env tools/importer/load.ts",
+    "modelo:planilha": "tsx tools/importer/modelo.ts",
     "auth:config": "tsx --env-file=../frontend/.env tools/db/auth-config.ts"
   },
   "description": "Supabase (migrações), importador da planilha e contrato da API do Zelar",

@@ -12,6 +12,11 @@ build/
 
 # Dados da empresa: planilhas e saídas do importador não vão para o repositório
 *.xlsx
+!exemplos/**/modelo-planilha.xlsx
 backend/tools/importer/out/
 .vercel
 .env*
+
+# Estado local de agentes e capturas soltas
+.omc/
+/screenshot.png
