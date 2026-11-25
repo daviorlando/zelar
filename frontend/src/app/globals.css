@@ -180,6 +180,12 @@
 }
 
 .light {
+  /* Texto de pílula sobre fundo tingido a 12%: os tons do tema claro ficavam em 3,6 a 4,2:1. */
+  --freq-daily: #0a6f7e;
+  --freq-weekly: color-mix(in srgb, var(--sig-setor-fertirrigacao) 78%, #000);
+  --freq-monthly: #4d7300;
+  --freq-quarterly: #a21caf;
+  --success: #166534;
   --freq-semiannual: #b45309;
   --freq-annual: #0f766e;
   --chart-1: #1d4ed8;

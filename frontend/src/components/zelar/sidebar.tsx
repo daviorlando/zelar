@@ -280,7 +280,7 @@ export function SidebarToggle({ className }: { className?: string }) {
       aria-controls="navegacao-principal"
       title={aberta ? "Recolher a navegação (Ctrl+B)" : "Expandir a navegação (Ctrl+B)"}
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        "grid size-11 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
         className,
       )}
     >
@@ -489,7 +489,7 @@ export function Sidebar({
           onClick={abrirSobreposta}
           aria-expanded={sobreposta}
           aria-controls="navegacao-sobreposta"
-          className="grid size-8 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="grid size-11 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <PanelLeft className="size-4" aria-hidden />
           <span className="sr-only">Abrir a navegação</span>
@@ -521,7 +521,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={fecharSobreposta}
-                className="grid size-8 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="grid size-11 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" aria-hidden />
                 <span className="sr-only">Fechar a navegação</span>

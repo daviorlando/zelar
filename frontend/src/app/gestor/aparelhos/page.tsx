@@ -5,7 +5,9 @@ import { Card } from "@/components/zelar/card";
 import { TabelaEsqueleto } from "@/components/zelar/esqueletos";
 import { Empty, Notice } from "@/components/zelar/feedback";
 import { PageHeader } from "@/components/zelar/misc";
+import { Qr } from "@/components/zelar/qr";
 import { Table, TD, TH, TR } from "@/components/zelar/table";
+import { enderecoDaPaginaBaixar } from "@/lib/app-android";
 import { supabaseForUser } from "@/lib/supabase/server";
 import { NovoAparelho, RevogarAparelho } from "./formularios";
 
@@ -17,6 +19,7 @@ export default function AparelhosPage() {
       <PageHeader eyebrow="Configuração" title="Celulares">
         Os celulares que podem baixar as tarefas desta empresa. Se um sumir, revogue aqui.
       </PageHeader>
+      <InstalarApp />
       <Suspense
         fallback={
           <Card>
@@ -27,6 +30,25 @@ export default function AparelhosPage() {
         <Lista />
       </Suspense>
     </>
+  );
+}
+
+async function InstalarApp() {
+  const endereco = enderecoDaPaginaBaixar();
+  if (!endereco) return null;
+  return (
+    <Card title="Instalar o app no celular" className="mb-4">
+      <div className="flex items-center gap-4">
+        <Qr texto={endereco} rotulo="QR code da página de baixar o app" className="size-28 shrink-0" />
+        <p className="text-sm text-muted-foreground">
+          Aponte a câmera do celular para o quadrado, ou abra{" "}
+          <a href="/baixar" className="break-words text-foreground underline">
+            {endereco.replace(/^https?:\/\//, "")}
+          </a>
+          . Depois, toque em <strong className="font-medium text-foreground">Ligar celular</strong> para gerar o código.
+        </p>
+      </div>
+    </Card>
   );
 }
 

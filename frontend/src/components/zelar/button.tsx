@@ -39,8 +39,8 @@ export const button = cva(
         ghost: "border-transparent bg-transparent text-brand-text hover:bg-accent",
       },
       size: {
-        default: "px-4 py-2 text-md",
-        small: "px-2.5 py-1 text-sm",
+        default: "px-4 py-2 text-md max-md:min-h-11",
+        small: "px-2.5 py-1 text-sm max-md:min-h-11",
         // Alvo de toque de 48px (size/touch-min) para tablet e uso em campo.
         large: "min-h-12 px-5 py-3 text-lg",
       },

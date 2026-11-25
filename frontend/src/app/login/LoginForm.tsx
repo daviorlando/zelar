@@ -17,7 +17,7 @@ export function LoginForm({ back }: { back: string }) {
       <Field label="Senha" htmlFor="password">
         <Input id="password" name="password" type={mostrar ? "text" : "password"} autoComplete="current-password" required />
       </Field>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      <label className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground">
         <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={mostrar} onChange={(e) => setMostrar(e.target.checked)} />
         Mostrar senha
       </label>

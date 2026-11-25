@@ -15,7 +15,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        "w-full rounded-sm border border-input bg-card px-2.5 py-2 text-md text-foreground",
+        "w-full rounded-sm border border-input bg-card px-2.5 py-2 text-md text-foreground max-md:min-h-11",
         "placeholder:text-muted-foreground",
         "transition-colors focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40",
         "disabled:opacity-50",
@@ -37,7 +37,7 @@ export const NativeSelect = forwardRef<HTMLSelectElement, SelectHTMLAttributes<H
       <select
         ref={ref}
         className={cn(
-          "w-full rounded-sm border border-input bg-card px-2.5 py-2 text-md text-foreground",
+          "w-full rounded-sm border border-input bg-card px-2.5 py-2 text-md text-foreground max-md:min-h-11",
           "transition-colors focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40",
           "disabled:opacity-50",
           // A lista aberta é desenhada pelo sistema, fora da página, e por isso

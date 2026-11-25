@@ -54,7 +54,7 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
 
       <Card title="Foto">
         <div className="flex flex-col gap-3">
-          <div className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
+          <div className="flex aspect-[3/4] max-lg:max-h-60 max-lg:w-full items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
             {preview ? (
               // eslint-disable-next-line @next/next/no-img-element -- prévia local ou URL assinada
               <img src={preview} alt="Foto do funcionário" className="h-full w-full object-cover" />
@@ -62,7 +62,7 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
               <span className="text-sm text-muted-foreground">Sem foto</span>
             )}
           </div>
-          <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-border bg-card px-4 py-2 text-md font-medium text-foreground transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
+          <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-sm border border-border bg-card px-4 py-2 text-md font-medium text-foreground transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
             <Camera className="size-4" aria-hidden />
             {preview ? "Trocar foto" : "Tirar ou escolher foto"}
             <input
@@ -108,7 +108,7 @@ export function WorkerForm({ worker, photoUrl, setores, marcados = [] }: Props) 
                   <span>
                     Setor {s.code}
                     <span className="block text-xs text-muted-foreground">
-                      {s.atividades ? `${s.atividades} atividades` : "sem atividades"}
+                      {s.atividades ? `${s.atividades} ${s.atividades === 1 ? "atividade" : "atividades"}` : "sem atividades"}
                     </span>
                   </span>
                 </Caixa>
