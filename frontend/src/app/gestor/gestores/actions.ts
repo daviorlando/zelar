@@ -56,9 +56,20 @@ export async function definirAtivo(id: string, ativo: boolean): Promise<Resultad
   const colega = await colegaDaEmpresa(id);
   if ("erro" in colega) return colega;
   if (id === colega.eu) return { erro: "Você não pode desativar a própria conta." };
-  const { error } = await supabaseAdmin().auth.admin.updateUserById(id, { ban_duration: ativo ? "none" : NUNCA });
+  const admin = supabaseAdmin();
+  const { error } = await admin.auth.admin.updateUserById(id, { ban_duration: ativo ? "none" : NUNCA });
   if (error) return { erro: error.message };
+  if (!ativo) {
+    // O que ele liberou sai junto: códigos ainda não usados e celulares ligados com a senha dele.
+    // Ligados por código ficam: são celulares da fábrica, usados por todos.
+    const agora = new Date().toISOString();
+    const codigos = await admin.from("device_activation").update({ expires_at: agora }).eq("created_by", id).is("used_at", null).gt("expires_at", agora);
+    const celulares = await admin.from("device").update({ revoked_at: agora }).eq("created_by", id).eq("via", "senha").is("revoked_at", null);
+    const falha = codigos.error ?? celulares.error;
+    if (falha) return { erro: `Gestor desativado, mas os celulares dele continuam ligados: ${falha.message}` };
+  }
   revalidatePath("/gestor/gestores");
+  revalidatePath("/gestor/aparelhos");
   return { ok: ativo ? "Gestor reativado." : "Gestor desativado." };
 }
 
