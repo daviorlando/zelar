@@ -9,7 +9,7 @@ import '../data/workers_repo.dart';
 
 /// O que o app pede ao Android. Só abre telas e lê o volume: nunca muda configuração.
 class SystemSettings {
-  static const _channel = MethodChannel('br.com.ecogesso.zelar/sistema');
+  static const _channel = MethodChannel('app.zelar.campo/sistema');
 
   Future<bool> openVoiceSettings() async {
     try {

@@ -311,7 +311,8 @@ class OutboxNotifier extends Notifier<List<OutboxOp>> {
           )
           .timeout(const Duration(seconds: 30));
       if (res.statusCode == 403) {
-        // Funcionário desativado: nada do lote entra. Fica para o gestor resolver.
+        // Funcionário de outra empresa ou apagado: nada do lote entra. Fica para o gestor resolver.
+        // (Desativado vem como 200, cada operação recusada e guardada no painel.)
         _reject(batch.map((o) => o.opId).toSet(), 'funcionário desativado');
         continue;
       }
