@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { supabaseForUser } from "@/lib/supabase/server";
 
 export type Resultado = { erro?: string };
@@ -45,4 +45,13 @@ export async function cancelar(id: string, motivo: string): Promise<Resultado> {
   const texto = motivo.trim();
   if (!texto) return { erro: "Escreva o motivo do cancelamento." };
   return decidir("cancelar_ordem", { ordem: id, motivo: texto });
+}
+
+/**
+ * Recarrega o quadro com dados de agora. O router.refresh() do navegador fazia um GET que a
+ * Vercel respondia do cache (a casca estática da página, sem cartões): o quadro só mudava no F5.
+ * Uma Server Action é POST, nunca sai do cache, e o refresh() devolve a página renderizada na hora.
+ */
+export async function atualizarQuadro(): Promise<void> {
+  refresh();
 }
