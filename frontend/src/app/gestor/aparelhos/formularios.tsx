@@ -7,7 +7,7 @@ import { Button } from "@/components/zelar/button";
 import { ConfirmDialog } from "@/components/zelar/confirmacao";
 import { Field, Input } from "@/components/zelar/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { gerarCodigo, revogarAparelho } from "./actions";
+import { excluirAparelho, gerarCodigo, revogarAparelho } from "./actions";
 
 export function NovoAparelho() {
   const [aberto, setAberto] = useState(false);
@@ -31,7 +31,9 @@ export function NovoAparelho() {
               <>
                 <DialogHeader>
                   <DialogTitle>Código do celular</DialogTitle>
-                  <DialogDescription>Digite no celular ao abrir o Zelar. Vale por 15 minutos e uma só vez.</DialogDescription>
+                  <DialogDescription>
+                    No celular, toque em “Tenho um código” e digite. Vale por 15 minutos e uma só vez. Se fechar esta janela, o código continua na tela Celulares até ser usado.
+                  </DialogDescription>
                 </DialogHeader>
                 <p className="num select-all text-center text-3xl font-medium tracking-widest text-foreground">
                   {codigo.slice(0, 4)} {codigo.slice(4)}
@@ -109,6 +111,38 @@ export function RevogarAparelho({ id, nome }: { id: string; nome: string }) {
         }
       >
         O celular para de baixar e enviar dados na hora. Use em caso de perda ou roubo. O que ainda não foi enviado fica preso nele.
+      </ConfirmDialog>
+    </>
+  );
+}
+
+export function ExcluirAparelho({ id, nome, ativo }: { id: string; nome: string; ativo: boolean }) {
+  const [aberto, setAberto] = useState(false);
+  const [ocupado, iniciar] = useTransition();
+  return (
+    <>
+      <Button size="small" variant="ghost" className="text-destructive" onClick={() => setAberto(true)}>
+        Excluir
+      </Button>
+      <ConfirmDialog
+        aberto={aberto}
+        aoMudar={setAberto}
+        titulo={`Excluir ${nome}?`}
+        confirmar="Excluir de vez"
+        variante="destructive"
+        ocupado={ocupado}
+        aoConfirmar={() =>
+          iniciar(async () => {
+            const r = await excluirAparelho(id);
+            setAberto(false);
+            if (r.erro) toast.error(r.erro);
+            else toast.success("Celular excluído.");
+          })
+        }
+      >
+        {ativo
+          ? "O celular sai da lista e para de funcionar na hora: volta para a tela de ligar. O que ainda não foi enviado fica preso nele. Não dá para desfazer."
+          : "O celular sai da lista para sempre. Não dá para desfazer."}
       </ConfirmDialog>
     </>
   );
