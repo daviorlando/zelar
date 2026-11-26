@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Badge } from "@/components/zelar/badge";
 import { supabaseDoNavegador } from "@/lib/supabase/browser";
+import { atualizarQuadro } from "./actions";
 
 /** Agrupa a rajada de eventos de um lote do celular numa atualização só. */
 const AGRUPAR_MS = 250;
@@ -15,12 +15,12 @@ const RESERVA_MS = 30_000;
 /**
  * Mantém o quadro em dia sozinho: cada mudança em work_order (toda resposta do celular,
  * que recalcula a ordem mesmo sem mudar a situação; validação de outro gestor; geração
- * de ordens) recarrega os dados da página com os filtros atuais, no máximo uma vez a
+ * de ordens) recarrega os dados da página com os filtros atuais, por uma Server Action, no máximo uma vez a
  * cada 5 s. Não desenha cartões: quem desenha continua sendo o servidor.
  */
 export function AoVivo() {
-  const router = useRouter();
   const [conectado, setConectado] = useState(false);
+  const [, iniciar] = useTransition();
 
   useEffect(() => {
     const supabase = supabaseDoNavegador();
@@ -35,7 +35,8 @@ export function AoVivo() {
         () => {
           espera = undefined;
           ultima = Date.now();
-          router.refresh();
+          // Server Action, não router.refresh(): o GET do refresh saía do cache da Vercel.
+          iniciar(() => atualizarQuadro());
         },
         Math.max(AGRUPAR_MS, ultima + INTERVALO_MS - Date.now()),
       );
@@ -74,7 +75,7 @@ export function AoVivo() {
       document.removeEventListener("visibilitychange", aoVoltar);
       void supabase.removeChannel(canal);
     };
-  }, [router]);
+  }, []);
 
   return (
     <div className="mb-2 flex justify-end" role="status">
